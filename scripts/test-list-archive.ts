@@ -2,7 +2,7 @@ import { eq, inArray } from 'drizzle-orm'
 import { db } from '../src/server/db/index.ts'
 import { products, productVariants, profiles } from '../src/server/db/schema/index.ts'
 import { createProductSchema, listProductsSchema } from '../src/lib/schemas/product.ts'
-import { archiveProduct, createProduct, listProducts } from '../src/server/services/products.ts'
+import { archiveProduct, createProduct, listProducts, restoreProduct } from '../src/server/services/products.ts'
 
 const [admin] = await db
   .select({ id: profiles.id })
@@ -42,6 +42,20 @@ try {
   console.log('6. UNEXPECTED: archived twice')
 } catch {
   console.log('6. second archive rejected, as expected')
+}
+
+// Test restoring
+const restored = await restoreProduct(p1.id)
+console.log('7. restored -> id:', restored.id, 'isActive:', restored.isActive)
+
+const l6 = await list({ category: 'script-test' })
+console.log('8. after restore -> total (expect 2):', l6.total)
+
+try {
+  await restoreProduct(p1.id)
+  console.log('9. UNEXPECTED: restored twice')
+} catch {
+  console.log('9. second restore rejected, as expected')
 }
 
 const ids = [p1.id, p2.id]

@@ -14,7 +14,9 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
 import { Route as AuthedProductsIndexRouteImport } from './routes/_authed/products/index'
+import { Route as AuthedProductsProductIdRouteImport } from './routes/_authed/products/$productId'
 import { Route as AuthedProductsNewRouteImport } from './routes/_authed/products/new'
+import { Route as AuthedUsersIndexRouteImport } from './routes/_authed/users/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,9 +42,19 @@ const AuthedProductsIndexRoute = AuthedProductsIndexRouteImport.update({
   path: '/products/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedProductsProductIdRoute = AuthedProductsProductIdRouteImport.update({
+  id: '/products/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedProductsNewRoute = AuthedProductsNewRouteImport.update({
   id: '/products/new',
   path: '/products/new',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedUsersIndexRoute = AuthedUsersIndexRouteImport.update({
+  id: '/users/',
+  path: '/users/',
   getParentRoute: () => AuthedRoute,
 } as any)
 
@@ -50,15 +62,19 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthedDashboardRoute
+  '/products/$productId': typeof AuthedProductsProductIdRoute
   '/products/new': typeof AuthedProductsNewRoute
   '/products/': typeof AuthedProductsIndexRoute
+  '/users/': typeof AuthedUsersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthedDashboardRoute
+  '/products/$productId': typeof AuthedProductsProductIdRoute
   '/products/new': typeof AuthedProductsNewRoute
   '/products': typeof AuthedProductsIndexRoute
+  '/users': typeof AuthedUsersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -66,22 +82,40 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
+  '/_authed/products/$productId': typeof AuthedProductsProductIdRoute
   '/_authed/products/new': typeof AuthedProductsNewRoute
   '/_authed/products/': typeof AuthedProductsIndexRoute
+  '/_authed/users/': typeof AuthedUsersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/dashboard' | '/products/new' | '/products/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/dashboard'
+    | '/products/$productId'
+    | '/products/new'
+    | '/products/'
+    | '/users/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/dashboard' | '/products/new' | '/products'
+  to:
+    | '/'
+    | '/login'
+    | '/dashboard'
+    | '/products/$productId'
+    | '/products/new'
+    | '/products'
+    | '/users'
   id:
     | '__root__'
     | '/'
     | '/_authed'
     | '/login'
     | '/_authed/dashboard'
+    | '/_authed/products/$productId'
     | '/_authed/products/new'
     | '/_authed/products/'
+    | '/_authed/users/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -127,6 +161,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedProductsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/products/$productId': {
+      id: '/_authed/products/$productId'
+      path: '/products/$productId'
+      fullPath: '/products/$productId'
+      preLoaderRoute: typeof AuthedProductsProductIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/products/new': {
       id: '/_authed/products/new'
       path: '/products/new'
@@ -134,19 +175,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedProductsNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/users/': {
+      id: '/_authed/users/'
+      path: '/users'
+      fullPath: '/users/'
+      preLoaderRoute: typeof AuthedUsersIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedDashboardRoute: typeof AuthedDashboardRoute
+  AuthedProductsProductIdRoute: typeof AuthedProductsProductIdRoute
   AuthedProductsNewRoute: typeof AuthedProductsNewRoute
   AuthedProductsIndexRoute: typeof AuthedProductsIndexRoute
+  AuthedUsersIndexRoute: typeof AuthedUsersIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedDashboardRoute: AuthedDashboardRoute,
+  AuthedProductsProductIdRoute: AuthedProductsProductIdRoute,
   AuthedProductsNewRoute: AuthedProductsNewRoute,
   AuthedProductsIndexRoute: AuthedProductsIndexRoute,
+  AuthedUsersIndexRoute: AuthedUsersIndexRoute,
 }
 
 const AuthedRouteWithChildren =

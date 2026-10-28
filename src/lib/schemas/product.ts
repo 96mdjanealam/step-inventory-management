@@ -75,8 +75,76 @@ export const listProductsSchema = z.object({
   includeArchived: z.boolean().default(false),
 })
 
+export type ListProductsInput = z.output<typeof listProductsSchema>
+
 export const archiveProductSchema = z.object({
   id: z.uuid(),
 })
+export type ArchiveProductInput = z.output<typeof archiveProductSchema>
 
-export type ListProductsInput = z.output<typeof listProductsSchema>
+export const restoreProductSchema = z.object({
+  id: z.uuid(),
+})
+export type RestoreProductInput = z.output<typeof restoreProductSchema>
+
+export const getProductSchema = z.object({
+  id: z.uuid(),
+})
+export type GetProductInput = z.output<typeof getProductSchema>
+
+export const updateProductSchema = z.object({
+  id: z.uuid(),
+  name: z.string().trim().min(1, 'Name is required'),
+  category: z.string().trim().min(1, 'Category is required'),
+  targetConsumer: z.enum(['male', 'female', 'unisex', 'kids']),
+  description: z.string().trim().optional(),
+})
+export type UpdateProductInput = z.output<typeof updateProductSchema>
+
+export const createVariantSchema = z
+  .object({
+    productId: z.uuid(),
+    sku: z.string().trim().min(1).optional(),
+    attributes: z.record(z.string(), z.string()).default({}),
+    image: z.string().trim().min(1).optional(),
+    discountedPrice: price,
+    regularPrice: price.optional(),
+    isDefault: z.boolean().default(false),
+  })
+  .refine(
+    (v) =>
+      v.regularPrice === undefined ||
+      Number(v.regularPrice) >= Number(v.discountedPrice),
+    {
+      message: 'Regular price cannot be below the discounted price',
+      path: ['regularPrice'],
+    },
+  )
+export type CreateVariantInput = z.output<typeof createVariantSchema>
+
+export const updateVariantSchema = z
+  .object({
+    id: z.uuid(),
+    sku: z.string().trim().min(1).optional(),
+    attributes: z.record(z.string(), z.string()).default({}),
+    image: z.string().trim().min(1).optional(),
+    discountedPrice: price,
+    regularPrice: price.optional(),
+    isDefault: z.boolean().default(false),
+  })
+  .refine(
+    (v) =>
+      v.regularPrice === undefined ||
+      Number(v.regularPrice) >= Number(v.discountedPrice),
+    {
+      message: 'Regular price cannot be below the discounted price',
+      path: ['regularPrice'],
+    },
+  )
+export type UpdateVariantInput = z.output<typeof updateVariantSchema>
+
+export const toggleVariantActiveSchema = z.object({
+  id: z.uuid(),
+  isActive: z.boolean(),
+})
+export type ToggleVariantActiveInput = z.output<typeof toggleVariantActiveSchema>

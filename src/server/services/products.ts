@@ -1,9 +1,11 @@
 import { and, desc, eq, ilike, sql } from 'drizzle-orm'
 import { db } from '../db/index.ts'
 import { products, productVariants } from '../db/schema/index.ts'
+import { logActivity } from './activity-logs.ts'
 import type {
   CreateProductInput,
   ListProductsInput,
+  UpdateProductInput,
 } from '../../lib/schemas/product.ts'
 
 function slugify(name: string) {
@@ -84,6 +86,22 @@ export async function createProduct(input: CreateProductInput, userId: string) {
         )
         .returning()
 
+      await logActivity(
+        {
+          userId,
+          action: 'product.create',
+          entityType: 'product',
+          entityId: product.id,
+          description: `Created product "${product.name}" with ${variants.length} variant(s)`,
+          metadata: {
+            name: product.name,
+            category: product.category,
+            slug: product.slug,
+          },
+        },
+        tx,
+      )
+
       return { ...product, variants }
     })
   } catch (error) {
@@ -142,20 +160,149 @@ export async function listProducts(input: ListProductsInput) {
   return { items, total, page: input.page, pageSize: input.pageSize }
 }
 
-export async function archiveProduct(id: string) {
-  const [archived] = await db
-    .update(products)
-    .set({ isActive: false })
-    .where(and(eq(products.id, id), eq(products.isActive, true)))
-    .returning({
-      id: products.id,
-      name: products.name,
-      isActive: products.isActive,
-    })
+export async function getProductById(id: string) {
+  const [product] = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1)
 
-  if (!archived) {
-    throw new Error('Product not found or already archived')
+  if (!product) {
+    throw new Error('Product not found')
   }
 
-  return archived
+  const variants = await db
+    .select()
+    .from(productVariants)
+    .where(eq(productVariants.productId, id))
+    .orderBy(desc(productVariants.isDefault), productVariants.createdAt)
+
+  return {
+    ...product,
+    variants,
+  }
+}
+
+export async function updateProduct(
+  input: UpdateProductInput,
+  userId?: string,
+) {
+  return await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ id: products.id, name: products.name, slug: products.slug })
+      .from(products)
+      .where(eq(products.id, input.id))
+      .limit(1)
+
+    if (!current) {
+      throw new Error('Product not found')
+    }
+
+    const slug =
+      current.name !== input.name ? slugify(input.name) : current.slug
+
+    if (!slug) {
+      throw new Error('Could not generate a valid slug from the product name')
+    }
+
+    try {
+      const [updated] = await tx
+        .update(products)
+        .set({
+          name: input.name,
+          category: input.category,
+          targetConsumer: input.targetConsumer,
+          description: input.description ?? null,
+          slug,
+        })
+        .where(eq(products.id, input.id))
+        .returning()
+
+      await logActivity(
+        {
+          userId,
+          action: 'product.update',
+          entityType: 'product',
+          entityId: updated.id,
+          description: `Updated product "${updated.name}"`,
+          metadata: {
+            previousName: current.name,
+            newName: updated.name,
+            category: updated.category,
+          },
+        },
+        tx,
+      )
+
+      return updated
+    } catch (error) {
+      const constraint = uniqueViolationConstraint(error)
+      if (constraint === 'products_slug_unique') {
+        throw new Error('A product with this name already exists')
+      }
+      throw error
+    }
+  })
+}
+
+export async function archiveProduct(id: string, userId?: string) {
+  return await db.transaction(async (tx) => {
+    const [archived] = await tx
+      .update(products)
+      .set({ isActive: false })
+      .where(and(eq(products.id, id), eq(products.isActive, true)))
+      .returning({
+        id: products.id,
+        name: products.name,
+        isActive: products.isActive,
+      })
+
+    if (!archived) {
+      throw new Error('Product not found or already archived')
+    }
+
+    await logActivity(
+      {
+        userId,
+        action: 'product.archive',
+        entityType: 'product',
+        entityId: archived.id,
+        description: `Archived product "${archived.name}"`,
+      },
+      tx,
+    )
+
+    return archived
+  })
+}
+
+export async function restoreProduct(id: string, userId?: string) {
+  return await db.transaction(async (tx) => {
+    const [restored] = await tx
+      .update(products)
+      .set({ isActive: true })
+      .where(and(eq(products.id, id), eq(products.isActive, false)))
+      .returning({
+        id: products.id,
+        name: products.name,
+        isActive: products.isActive,
+      })
+
+    if (!restored) {
+      throw new Error('Product not found or already active')
+    }
+
+    await logActivity(
+      {
+        userId,
+        action: 'product.restore',
+        entityType: 'product',
+        entityId: restored.id,
+        description: `Restored product "${restored.name}"`,
+      },
+      tx,
+    )
+
+    return restored
+  })
 }
