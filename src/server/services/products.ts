@@ -1,0 +1,161 @@
+import { and, desc, eq, ilike, sql } from 'drizzle-orm'
+import { db } from '../db/index.ts'
+import { products, productVariants } from '../db/schema/index.ts'
+import type {
+  CreateProductInput,
+  ListProductsInput,
+} from '../../lib/schemas/product.ts'
+
+function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function buildVariants(input: CreateProductInput) {
+  if (input.variants.length > 0) return input.variants
+
+  if (input.discountedPrice === undefined) {
+    throw new Error('A price is required when no variants are given')
+  }
+
+  return [
+    {
+      sku: input.sku,
+      attributes: {},
+      image: undefined,
+      discountedPrice: input.discountedPrice,
+      regularPrice: input.regularPrice,
+    },
+  ]
+}
+
+function uniqueViolationConstraint(error: unknown): string | undefined {
+  const candidates = [error, (error as { cause?: unknown } | undefined)?.cause]
+  for (const candidate of candidates) {
+    const pgError = candidate as
+      { code?: string; constraint?: string } | undefined
+    if (pgError?.code === '23505') return pgError.constraint
+  }
+  return undefined
+}
+
+export async function createProduct(input: CreateProductInput, userId: string) {
+  const slug = input.slug ?? slugify(input.name)
+  if (!slug) {
+    throw new Error(
+      'Could not generate a slug from the name; please provide one',
+    )
+  }
+
+  const variantRows = buildVariants(input)
+
+  try {
+    return await db.transaction(async (tx) => {
+      const [product] = await tx
+        .insert(products)
+        .values({
+          name: input.name,
+          category: input.category,
+          targetConsumer: input.targetConsumer,
+          measurementType: input.measurementType,
+          unit: input.unit,
+          description: input.description,
+          slug,
+          createdBy: userId,
+        })
+        .returning()
+
+      const variants = await tx
+        .insert(productVariants)
+        .values(
+          variantRows.map((variant, index) => ({
+            productId: product.id,
+            sku: variant.sku,
+            attributes: variant.attributes,
+            image: variant.image,
+            discountedPrice: variant.discountedPrice,
+            regularPrice: variant.regularPrice,
+            isDefault: index === 0,
+          })),
+        )
+        .returning()
+
+      return { ...product, variants }
+    })
+  } catch (error) {
+    const constraint = uniqueViolationConstraint(error)
+    if (constraint === 'products_slug_unique') {
+      throw new Error('A product with this name already exists')
+    }
+    if (constraint === 'product_variants_sku_unique') {
+      throw new Error('This SKU is already in use')
+    }
+    throw error
+  }
+}
+
+export async function listProducts(input: ListProductsInput) {
+  const escapedSearch = input.search?.replace(/[%_\\]/g, '\\$&')
+
+  const where = and(
+    input.includeArchived ? undefined : eq(products.isActive, true),
+    escapedSearch ? ilike(products.name, `%${escapedSearch}%`) : undefined,
+    input.category
+      ? sql`lower(${products.category}) = lower(${input.category})`
+      : undefined,
+  )
+
+  const [items, total] = await Promise.all([
+    db
+      .select({
+        id: products.id,
+        name: products.name,
+        category: products.category,
+        slug: products.slug,
+        targetConsumer: products.targetConsumer,
+        measurementType: products.measurementType,
+        unit: products.unit,
+        isActive: products.isActive,
+        createdAt: products.createdAt,
+        discountedPrice: productVariants.discountedPrice,
+        regularPrice: productVariants.regularPrice,
+      })
+      .from(products)
+      .leftJoin(
+        productVariants,
+        and(
+          eq(productVariants.productId, products.id),
+          eq(productVariants.isDefault, true),
+        ),
+      )
+      .where(where)
+      .orderBy(desc(products.createdAt), products.id)
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+    db.$count(products, where),
+  ])
+
+  return { items, total, page: input.page, pageSize: input.pageSize }
+}
+
+export async function archiveProduct(id: string) {
+  const [archived] = await db
+    .update(products)
+    .set({ isActive: false })
+    .where(and(eq(products.id, id), eq(products.isActive, true)))
+    .returning({
+      id: products.id,
+      name: products.name,
+      isActive: products.isActive,
+    })
+
+  if (!archived) {
+    throw new Error('Product not found or already archived')
+  }
+
+  return archived
+}
