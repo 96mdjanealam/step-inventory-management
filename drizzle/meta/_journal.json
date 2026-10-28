@@ -22,6 +22,34 @@
       "when": 1793193002030,
       "tag": "0002_futuristic_tusk",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793195484928,
+      "tag": "0003_melodic_paibok",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793197061561,
+      "tag": "0004_spooky_the_anarchist",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793198248055,
+      "tag": "0005_fat_raider",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793199936887,
+      "tag": "0006_bent_sunfire",
+      "breakpoints": true
     }
   ]
 }

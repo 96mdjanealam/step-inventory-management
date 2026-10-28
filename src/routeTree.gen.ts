@@ -13,9 +13,18 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
+import { Route as AuthedAuditIndexRouteImport } from './routes/_authed/audit/index'
+import { Route as AuthedDamageIndexRouteImport } from './routes/_authed/damage/index'
+import { Route as AuthedInventoryIndexRouteImport } from './routes/_authed/inventory/index'
+import { Route as AuthedLocationsIndexRouteImport } from './routes/_authed/locations/index'
 import { Route as AuthedProductsIndexRouteImport } from './routes/_authed/products/index'
 import { Route as AuthedProductsProductIdRouteImport } from './routes/_authed/products/$productId'
 import { Route as AuthedProductsNewRouteImport } from './routes/_authed/products/new'
+import { Route as AuthedReturnsIndexRouteImport } from './routes/_authed/returns/index'
+import { Route as AuthedSalesIndexRouteImport } from './routes/_authed/sales/index'
+import { Route as AuthedSalesSaleIdRouteImport } from './routes/_authed/sales/$saleId'
+import { Route as AuthedSalesNewRouteImport } from './routes/_authed/sales/new'
+import { Route as AuthedTransfersIndexRouteImport } from './routes/_authed/transfers/index'
 import { Route as AuthedUsersIndexRouteImport } from './routes/_authed/users/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -37,6 +46,26 @@ const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedAuditIndexRoute = AuthedAuditIndexRouteImport.update({
+  id: '/audit/',
+  path: '/audit/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedDamageIndexRoute = AuthedDamageIndexRouteImport.update({
+  id: '/damage/',
+  path: '/damage/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedInventoryIndexRoute = AuthedInventoryIndexRouteImport.update({
+  id: '/inventory/',
+  path: '/inventory/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedLocationsIndexRoute = AuthedLocationsIndexRouteImport.update({
+  id: '/locations/',
+  path: '/locations/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedProductsIndexRoute = AuthedProductsIndexRouteImport.update({
   id: '/products/',
   path: '/products/',
@@ -52,6 +81,31 @@ const AuthedProductsNewRoute = AuthedProductsNewRouteImport.update({
   path: '/products/new',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedReturnsIndexRoute = AuthedReturnsIndexRouteImport.update({
+  id: '/returns/',
+  path: '/returns/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSalesIndexRoute = AuthedSalesIndexRouteImport.update({
+  id: '/sales/',
+  path: '/sales/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSalesSaleIdRoute = AuthedSalesSaleIdRouteImport.update({
+  id: '/sales/$saleId',
+  path: '/sales/$saleId',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSalesNewRoute = AuthedSalesNewRouteImport.update({
+  id: '/sales/new',
+  path: '/sales/new',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedTransfersIndexRoute = AuthedTransfersIndexRouteImport.update({
+  id: '/transfers/',
+  path: '/transfers/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedUsersIndexRoute = AuthedUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
@@ -64,7 +118,16 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthedDashboardRoute
   '/products/$productId': typeof AuthedProductsProductIdRoute
   '/products/new': typeof AuthedProductsNewRoute
+  '/sales/$saleId': typeof AuthedSalesSaleIdRoute
+  '/sales/new': typeof AuthedSalesNewRoute
+  '/audit/': typeof AuthedAuditIndexRoute
+  '/damage/': typeof AuthedDamageIndexRoute
+  '/inventory/': typeof AuthedInventoryIndexRoute
+  '/locations/': typeof AuthedLocationsIndexRoute
   '/products/': typeof AuthedProductsIndexRoute
+  '/returns/': typeof AuthedReturnsIndexRoute
+  '/sales/': typeof AuthedSalesIndexRoute
+  '/transfers/': typeof AuthedTransfersIndexRoute
   '/users/': typeof AuthedUsersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -73,7 +136,16 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthedDashboardRoute
   '/products/$productId': typeof AuthedProductsProductIdRoute
   '/products/new': typeof AuthedProductsNewRoute
+  '/sales/$saleId': typeof AuthedSalesSaleIdRoute
+  '/sales/new': typeof AuthedSalesNewRoute
+  '/audit': typeof AuthedAuditIndexRoute
+  '/damage': typeof AuthedDamageIndexRoute
+  '/inventory': typeof AuthedInventoryIndexRoute
+  '/locations': typeof AuthedLocationsIndexRoute
   '/products': typeof AuthedProductsIndexRoute
+  '/returns': typeof AuthedReturnsIndexRoute
+  '/sales': typeof AuthedSalesIndexRoute
+  '/transfers': typeof AuthedTransfersIndexRoute
   '/users': typeof AuthedUsersIndexRoute
 }
 export interface FileRoutesById {
@@ -84,7 +156,16 @@ export interface FileRoutesById {
   '/_authed/dashboard': typeof AuthedDashboardRoute
   '/_authed/products/$productId': typeof AuthedProductsProductIdRoute
   '/_authed/products/new': typeof AuthedProductsNewRoute
+  '/_authed/sales/$saleId': typeof AuthedSalesSaleIdRoute
+  '/_authed/sales/new': typeof AuthedSalesNewRoute
+  '/_authed/audit/': typeof AuthedAuditIndexRoute
+  '/_authed/damage/': typeof AuthedDamageIndexRoute
+  '/_authed/inventory/': typeof AuthedInventoryIndexRoute
+  '/_authed/locations/': typeof AuthedLocationsIndexRoute
   '/_authed/products/': typeof AuthedProductsIndexRoute
+  '/_authed/returns/': typeof AuthedReturnsIndexRoute
+  '/_authed/sales/': typeof AuthedSalesIndexRoute
+  '/_authed/transfers/': typeof AuthedTransfersIndexRoute
   '/_authed/users/': typeof AuthedUsersIndexRoute
 }
 export interface FileRouteTypes {
@@ -95,7 +176,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/products/$productId'
     | '/products/new'
+    | '/sales/$saleId'
+    | '/sales/new'
+    | '/audit/'
+    | '/damage/'
+    | '/inventory/'
+    | '/locations/'
     | '/products/'
+    | '/returns/'
+    | '/sales/'
+    | '/transfers/'
     | '/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -104,7 +194,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/products/$productId'
     | '/products/new'
+    | '/sales/$saleId'
+    | '/sales/new'
+    | '/audit'
+    | '/damage'
+    | '/inventory'
+    | '/locations'
     | '/products'
+    | '/returns'
+    | '/sales'
+    | '/transfers'
     | '/users'
   id:
     | '__root__'
@@ -114,7 +213,16 @@ export interface FileRouteTypes {
     | '/_authed/dashboard'
     | '/_authed/products/$productId'
     | '/_authed/products/new'
+    | '/_authed/sales/$saleId'
+    | '/_authed/sales/new'
+    | '/_authed/audit/'
+    | '/_authed/damage/'
+    | '/_authed/inventory/'
+    | '/_authed/locations/'
     | '/_authed/products/'
+    | '/_authed/returns/'
+    | '/_authed/sales/'
+    | '/_authed/transfers/'
     | '/_authed/users/'
   fileRoutesById: FileRoutesById
 }
@@ -154,6 +262,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedDashboardRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/audit/': {
+      id: '/_authed/audit/'
+      path: '/audit'
+      fullPath: '/audit/'
+      preLoaderRoute: typeof AuthedAuditIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/damage/': {
+      id: '/_authed/damage/'
+      path: '/damage'
+      fullPath: '/damage/'
+      preLoaderRoute: typeof AuthedDamageIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/inventory/': {
+      id: '/_authed/inventory/'
+      path: '/inventory'
+      fullPath: '/inventory/'
+      preLoaderRoute: typeof AuthedInventoryIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/locations/': {
+      id: '/_authed/locations/'
+      path: '/locations'
+      fullPath: '/locations/'
+      preLoaderRoute: typeof AuthedLocationsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/products/': {
       id: '/_authed/products/'
       path: '/products'
@@ -175,6 +311,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedProductsNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/returns/': {
+      id: '/_authed/returns/'
+      path: '/returns'
+      fullPath: '/returns/'
+      preLoaderRoute: typeof AuthedReturnsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/sales/': {
+      id: '/_authed/sales/'
+      path: '/sales'
+      fullPath: '/sales/'
+      preLoaderRoute: typeof AuthedSalesIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/sales/$saleId': {
+      id: '/_authed/sales/$saleId'
+      path: '/sales/$saleId'
+      fullPath: '/sales/$saleId'
+      preLoaderRoute: typeof AuthedSalesSaleIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/sales/new': {
+      id: '/_authed/sales/new'
+      path: '/sales/new'
+      fullPath: '/sales/new'
+      preLoaderRoute: typeof AuthedSalesNewRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/transfers/': {
+      id: '/_authed/transfers/'
+      path: '/transfers'
+      fullPath: '/transfers/'
+      preLoaderRoute: typeof AuthedTransfersIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/users/': {
       id: '/_authed/users/'
       path: '/users'
@@ -189,7 +360,16 @@ interface AuthedRouteChildren {
   AuthedDashboardRoute: typeof AuthedDashboardRoute
   AuthedProductsProductIdRoute: typeof AuthedProductsProductIdRoute
   AuthedProductsNewRoute: typeof AuthedProductsNewRoute
+  AuthedSalesSaleIdRoute: typeof AuthedSalesSaleIdRoute
+  AuthedSalesNewRoute: typeof AuthedSalesNewRoute
+  AuthedAuditIndexRoute: typeof AuthedAuditIndexRoute
+  AuthedDamageIndexRoute: typeof AuthedDamageIndexRoute
+  AuthedInventoryIndexRoute: typeof AuthedInventoryIndexRoute
+  AuthedLocationsIndexRoute: typeof AuthedLocationsIndexRoute
   AuthedProductsIndexRoute: typeof AuthedProductsIndexRoute
+  AuthedReturnsIndexRoute: typeof AuthedReturnsIndexRoute
+  AuthedSalesIndexRoute: typeof AuthedSalesIndexRoute
+  AuthedTransfersIndexRoute: typeof AuthedTransfersIndexRoute
   AuthedUsersIndexRoute: typeof AuthedUsersIndexRoute
 }
 
@@ -197,7 +377,16 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedDashboardRoute: AuthedDashboardRoute,
   AuthedProductsProductIdRoute: AuthedProductsProductIdRoute,
   AuthedProductsNewRoute: AuthedProductsNewRoute,
+  AuthedSalesSaleIdRoute: AuthedSalesSaleIdRoute,
+  AuthedSalesNewRoute: AuthedSalesNewRoute,
+  AuthedAuditIndexRoute: AuthedAuditIndexRoute,
+  AuthedDamageIndexRoute: AuthedDamageIndexRoute,
+  AuthedInventoryIndexRoute: AuthedInventoryIndexRoute,
+  AuthedLocationsIndexRoute: AuthedLocationsIndexRoute,
   AuthedProductsIndexRoute: AuthedProductsIndexRoute,
+  AuthedReturnsIndexRoute: AuthedReturnsIndexRoute,
+  AuthedSalesIndexRoute: AuthedSalesIndexRoute,
+  AuthedTransfersIndexRoute: AuthedTransfersIndexRoute,
   AuthedUsersIndexRoute: AuthedUsersIndexRoute,
 }
 
