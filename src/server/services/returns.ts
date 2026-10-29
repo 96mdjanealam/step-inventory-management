@@ -59,6 +59,7 @@ export async function createReturn(input: CreateReturnInput, userId: string) {
         quantity: saleItems.quantity,
         unitPrice: saleItems.unitPrice,
         productName: products.name,
+        measurementType: products.measurementType,
         sku: productVariants.sku,
         unit: products.unit,
       })
@@ -108,6 +109,12 @@ export async function createReturn(input: CreateReturnInput, userId: string) {
         throw new Error(
           `Sale item with ID "${item.saleItemId}" does not belong to sale "${sale.orderNumber}"`,
         )
+      }
+
+      if (saleItem.measurementType === 'count' || saleItem.unit === 'piece') {
+        if (!Number.isInteger(Number(item.quantity))) {
+          throw new Error(`Quantity for ${saleItem.unit} items must be a whole number`)
+        }
       }
 
       const returnQtyFixed3 = toFixed3(item.quantity)
@@ -318,8 +325,53 @@ export async function listReturns(input: ListReturnsInput = {}) {
     .limit(pageSize)
     .offset(offset)
 
+  const returnIds = rows.map((r) => r.id)
+  const itemsByReturnId = new Map<
+    string,
+    Array<{
+      productName: string
+      sku: string | null
+      attributes: Record<string, string>
+      quantity: string
+      unit: string
+    }>
+  >()
+
+  if (returnIds.length > 0) {
+    const itemRows = await db
+      .select({
+        returnId: returnItems.returnId,
+        productName: products.name,
+        sku: productVariants.sku,
+        attributes: productVariants.attributes,
+        quantity: returnItems.quantity,
+        unit: products.unit,
+      })
+      .from(returnItems)
+      .innerJoin(products, eq(returnItems.productId, products.id))
+      .innerJoin(productVariants, eq(returnItems.variantId, productVariants.id))
+      .where(inArray(returnItems.returnId, returnIds))
+
+    for (const item of itemRows) {
+      const list = itemsByReturnId.get(item.returnId) ?? []
+      list.push({
+        productName: item.productName,
+        sku: item.sku,
+        attributes: (item.attributes as Record<string, string>) || {},
+        quantity: item.quantity,
+        unit: item.unit,
+      })
+      itemsByReturnId.set(item.returnId, list)
+    }
+  }
+
+  const returnsWithItems = rows.map((r) => ({
+    ...r,
+    items: itemsByReturnId.get(r.id) ?? [],
+  }))
+
   return {
-    returns: rows,
+    returns: returnsWithItems,
     total: totalCountResult?.count || 0,
     page,
     pageSize,

@@ -25,6 +25,7 @@ import { Route as AuthedSalesIndexRouteImport } from './routes/_authed/sales/ind
 import { Route as AuthedSalesSaleIdRouteImport } from './routes/_authed/sales/$saleId'
 import { Route as AuthedSalesNewRouteImport } from './routes/_authed/sales/new'
 import { Route as AuthedTransfersIndexRouteImport } from './routes/_authed/transfers/index'
+import { Route as AuthedTransfersNewRouteImport } from './routes/_authed/transfers/new'
 import { Route as AuthedUsersIndexRouteImport } from './routes/_authed/users/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -106,6 +107,11 @@ const AuthedTransfersIndexRoute = AuthedTransfersIndexRouteImport.update({
   path: '/transfers/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedTransfersNewRoute = AuthedTransfersNewRouteImport.update({
+  id: '/transfers/new',
+  path: '/transfers/new',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedUsersIndexRoute = AuthedUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/products/new': typeof AuthedProductsNewRoute
   '/sales/$saleId': typeof AuthedSalesSaleIdRoute
   '/sales/new': typeof AuthedSalesNewRoute
+  '/transfers/new': typeof AuthedTransfersNewRoute
   '/audit/': typeof AuthedAuditIndexRoute
   '/damage/': typeof AuthedDamageIndexRoute
   '/inventory/': typeof AuthedInventoryIndexRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/products/new': typeof AuthedProductsNewRoute
   '/sales/$saleId': typeof AuthedSalesSaleIdRoute
   '/sales/new': typeof AuthedSalesNewRoute
+  '/transfers/new': typeof AuthedTransfersNewRoute
   '/audit': typeof AuthedAuditIndexRoute
   '/damage': typeof AuthedDamageIndexRoute
   '/inventory': typeof AuthedInventoryIndexRoute
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/_authed/products/new': typeof AuthedProductsNewRoute
   '/_authed/sales/$saleId': typeof AuthedSalesSaleIdRoute
   '/_authed/sales/new': typeof AuthedSalesNewRoute
+  '/_authed/transfers/new': typeof AuthedTransfersNewRoute
   '/_authed/audit/': typeof AuthedAuditIndexRoute
   '/_authed/damage/': typeof AuthedDamageIndexRoute
   '/_authed/inventory/': typeof AuthedInventoryIndexRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/products/new'
     | '/sales/$saleId'
     | '/sales/new'
+    | '/transfers/new'
     | '/audit/'
     | '/damage/'
     | '/inventory/'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/products/new'
     | '/sales/$saleId'
     | '/sales/new'
+    | '/transfers/new'
     | '/audit'
     | '/damage'
     | '/inventory'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/_authed/products/new'
     | '/_authed/sales/$saleId'
     | '/_authed/sales/new'
+    | '/_authed/transfers/new'
     | '/_authed/audit/'
     | '/_authed/damage/'
     | '/_authed/inventory/'
@@ -346,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedTransfersIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/transfers/new': {
+      id: '/_authed/transfers/new'
+      path: '/transfers/new'
+      fullPath: '/transfers/new'
+      preLoaderRoute: typeof AuthedTransfersNewRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/users/': {
       id: '/_authed/users/'
       path: '/users'
@@ -362,6 +381,7 @@ interface AuthedRouteChildren {
   AuthedProductsNewRoute: typeof AuthedProductsNewRoute
   AuthedSalesSaleIdRoute: typeof AuthedSalesSaleIdRoute
   AuthedSalesNewRoute: typeof AuthedSalesNewRoute
+  AuthedTransfersNewRoute: typeof AuthedTransfersNewRoute
   AuthedAuditIndexRoute: typeof AuthedAuditIndexRoute
   AuthedDamageIndexRoute: typeof AuthedDamageIndexRoute
   AuthedInventoryIndexRoute: typeof AuthedInventoryIndexRoute
@@ -379,6 +399,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedProductsNewRoute: AuthedProductsNewRoute,
   AuthedSalesSaleIdRoute: AuthedSalesSaleIdRoute,
   AuthedSalesNewRoute: AuthedSalesNewRoute,
+  AuthedTransfersNewRoute: AuthedTransfersNewRoute,
   AuthedAuditIndexRoute: AuthedAuditIndexRoute,
   AuthedDamageIndexRoute: AuthedDamageIndexRoute,
   AuthedInventoryIndexRoute: AuthedInventoryIndexRoute,

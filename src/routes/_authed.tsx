@@ -12,7 +12,30 @@ export const Route = createFileRoute('/_authed')({
     }
   },
   component: AuthedLayout,
+  notFoundComponent: AuthedNotFound,
 })
+
+function AuthedNotFound() {
+  return (
+    <div className="p-12 max-w-md mx-auto text-center space-y-4">
+      <div className="w-12 h-12 rounded-full bg-neutral-200 text-neutral-600 flex items-center justify-center mx-auto text-lg font-bold font-mono">
+        404
+      </div>
+      <h2 className="text-xl font-bold text-neutral-900">Record Not Found</h2>
+      <p className="text-sm text-neutral-500">
+        The requested inventory record, order, or page could not be found.
+      </p>
+      <div className="pt-2">
+        <Link
+          to="/inventory"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-neutral-900 rounded-lg hover:bg-neutral-800 transition shadow-sm"
+        >
+          Return to Stock Balances
+        </Link>
+      </div>
+    </div>
+  )
+}
 
 function AuthedLayout() {
   const { user } = Route.useRouteContext()
@@ -44,7 +67,7 @@ function AuthedLayout() {
                   inactiveProps={{ className: 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50' }}
                   className="px-3 py-1.5 rounded-md text-sm font-medium transition"
                 >
-                  Stock Balances
+                  Stock & Locations
                 </Link>
                 <Link
                   to="/products"
@@ -93,14 +116,6 @@ function AuthedLayout() {
                   className="px-3 py-1.5 rounded-md text-sm font-medium transition"
                 >
                   Audit & Ledger
-                </Link>
-                <Link
-                  to="/locations"
-                  activeProps={{ className: 'bg-neutral-100 text-neutral-900 font-semibold' }}
-                  inactiveProps={{ className: 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50' }}
-                  className="px-3 py-1.5 rounded-md text-sm font-medium transition"
-                >
-                  Locations
                 </Link>
                 {user.role === 'admin' && (
                   <Link

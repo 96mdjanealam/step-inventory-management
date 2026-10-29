@@ -34,6 +34,7 @@ export const listInventorySchema = z.object({
   locationId: z.uuid().optional(),
   productId: z.uuid().optional(),
   search: z.string().trim().min(1).optional(),
+  includeZeroQuantity: z.boolean().default(false).optional(),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(20),
 })

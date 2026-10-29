@@ -35,6 +35,7 @@ export const createProductSchema = z
     targetConsumer: z.enum(['male', 'female', 'unisex', 'kids']).default('unisex'),
     measurementType: z.enum(['count', 'weight', 'volume']).default('count'),
     unit: z.enum(['piece', 'kg', 'g', 'litre', 'ml']).default('piece'),
+    images: z.array(z.string().trim()).default([]),
     description: z.string().trim().min(1).optional(),
     slug: z
       .string()
@@ -43,6 +44,7 @@ export const createProductSchema = z
     // Custom variants. If empty, one default variant is created from the fields below.
     variants: z.array(variantInputSchema).default([]),
     sku: z.string().trim().min(1).optional(),
+    image: z.string().trim().min(1).optional(),
     discountedPrice: price.optional(),
     regularPrice: price.optional(),
   })
@@ -97,6 +99,7 @@ export const updateProductSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
   category: z.string().trim().min(1, 'Category is required'),
   targetConsumer: z.enum(['male', 'female', 'unisex', 'kids']),
+  images: z.array(z.string().trim()).optional(),
   description: z.string().trim().optional(),
 })
 export type UpdateProductInput = z.output<typeof updateProductSchema>

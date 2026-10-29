@@ -123,6 +123,17 @@ function SaleDetailPage() {
       return
     }
 
+    for (const item of itemsToReturn) {
+      const original = sale.items.find((si) => si.id === item.saleItemId)
+      const isCount = original?.unit === 'piece'
+      if (isCount && !Number.isInteger(Number(item.quantity))) {
+        setError(
+          `Quantity for ${original?.productName || 'item'} (${original?.unit || 'piece'}) must be a whole number`,
+        )
+        return
+      }
+    }
+
     try {
       setReturnPending(true)
       await createReturn({
@@ -545,7 +556,7 @@ function SaleDetailPage() {
                             type="number"
                             min="0"
                             max={maxReturnable}
-                            step="any"
+                            step={item.unit === 'piece' ? '1' : '0.001'}
                             placeholder="0"
                             value={currentInput}
                             onChange={(e) => {

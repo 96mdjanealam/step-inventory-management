@@ -1,6 +1,6 @@
-import { and, eq, ilike, or } from 'drizzle-orm'
+import { and, eq, ilike, or, sql } from 'drizzle-orm'
 import { db } from '../db/index.ts'
-import { locations } from '../db/schema/index.ts'
+import { inventory, locations } from '../db/schema/index.ts'
 import { logActivity } from './activity-logs.ts'
 import type {
   CreateStoreInput,
@@ -143,6 +143,46 @@ export async function listLocations(input: ListLocationsInput = {}) {
     .orderBy(locations.type, locations.name)
 
   return items
+}
+
+export async function listLocationsWithStock(input: ListLocationsInput = {}) {
+  const items = await listLocations(input)
+
+  const stockSummary = await db
+    .select({
+      locationId: inventory.locationId,
+      totalQuantity: sql<string>`coalesce(sum(${inventory.quantity}), 0)::text`,
+      itemCount: sql<number>`count(case when ${inventory.quantity} > 0 then 1 else null end)::int`,
+    })
+    .from(inventory)
+    .groupBy(inventory.locationId)
+
+  const summaryMap = new Map<
+    string,
+    { totalQuantity: string; itemCount: number }
+  >()
+  for (const s of stockSummary) {
+    const num = Number(s.totalQuantity)
+    summaryMap.set(s.locationId, {
+      totalQuantity: num.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3,
+      }),
+      itemCount: s.itemCount,
+    })
+  }
+
+  return items.map((loc) => {
+    const summary = summaryMap.get(loc.id) ?? {
+      totalQuantity: '0',
+      itemCount: 0,
+    }
+    return {
+      ...loc,
+      totalQuantity: summary.totalQuantity,
+      itemCount: summary.itemCount,
+    }
+  })
 }
 
 export async function toggleLocationActive(

@@ -47,7 +47,7 @@ export const Route = createFileRoute('/_authed/damage/')({
 })
 
 function DamageReportsPage() {
-  const { damageReports, total, page, pageSize, locations, inventory } =
+  const { damageReports, total, page, pageSize, locations, inventory, summary } =
     Route.useLoaderData()
   const { search, locationId, status } = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -75,7 +75,6 @@ function DamageReportsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const sellableLocations = locations.filter((l) => l.type !== 'damaged')
-  const damagedStockLocation = locations.find((l) => l.type === 'damaged')
 
   // Stock at selected source location for report modal
   const sourceStockItems = inventory.filter(
@@ -109,8 +108,7 @@ function DamageReportsPage() {
     })
   }
 
-  function handleStatusFilter(e: React.ChangeEvent<HTMLSelectElement>) {
-    const val = e.target.value as 'quarantined' | 'repaired' | 'disposed' | ''
+  function handleStatusFilter(val: 'quarantined' | 'repaired' | 'disposed' | '') {
     navigate({
       search: (prev) => ({
         ...prev,
@@ -134,6 +132,15 @@ function DamageReportsPage() {
     }
     if (Number(reportQuantity) <= 0) {
       setModalError('Quantity must be greater than 0')
+      return
+    }
+    const isCount =
+      selectedSourceItem?.product.measurementType === 'count' ||
+      selectedSourceItem?.product.unit === 'piece'
+    if (isCount && !Number.isInteger(Number(reportQuantity))) {
+      setModalError(
+        `Quantity for ${selectedSourceItem?.product.unit || 'piece'} items must be a whole number`,
+      )
       return
     }
     if (selectedSourceItem && Number(reportQuantity) > Number(selectedSourceItem.quantity)) {
@@ -247,34 +254,140 @@ function DamageReportsPage() {
         </button>
       </div>
 
-      {/* Damaged Stock Banner */}
-      {damagedStockLocation && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-amber-900 text-sm">
-          <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-lg bg-amber-100 text-amber-700">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Active Quarantined Card */}
+        <div
+          onClick={() => handleStatusFilter('quarantined')}
+          className={`cursor-pointer rounded-xl border p-4 transition ${
+            status === 'quarantined'
+              ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20'
+              : 'border-neutral-200 bg-white hover:border-amber-300'
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-amber-800">
+            <span>In Quarantine</span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+              {summary?.quarantined?.count ?? 0} tickets
             </span>
-            <div>
-              <div className="font-semibold">Central Damaged Stock Facility</div>
-              <div className="text-xs text-amber-700">
-                All quarantined stock is isolated at <strong>{damagedStockLocation.name}</strong> until repaired or disposed.
-              </div>
-            </div>
           </div>
+          <div className="mt-2 text-2xl font-bold text-amber-900">
+            {summary?.quarantined?.totalQuantity ?? '0'}{' '}
+            <span className="text-sm font-normal text-amber-700">units</span>
+          </div>
+          <p className="mt-1 text-xs text-amber-700">
+            Awaiting inspection, repair, or scrap
+          </p>
         </div>
-      )}
+
+        {/* Disposed / Wasted Card */}
+        <div
+          onClick={() => handleStatusFilter('disposed')}
+          className={`cursor-pointer rounded-xl border p-4 transition ${
+            status === 'disposed'
+              ? 'border-rose-500 bg-rose-50/50 ring-2 ring-rose-500/20'
+              : 'border-neutral-200 bg-white hover:border-rose-300'
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-rose-800">
+            <span>Disposed / Wasted</span>
+            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-800">
+              {summary?.disposed?.count ?? 0} write-offs
+            </span>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-rose-900">
+            {summary?.disposed?.totalQuantity ?? '0'}{' '}
+            <span className="text-sm font-normal text-rose-700">units wasted</span>
+          </div>
+          <p className="mt-1 text-xs text-rose-700">
+            Permanently written off as scrap or total loss
+          </p>
+        </div>
+
+        {/* Repaired / Restocked Card */}
+        <div
+          onClick={() => handleStatusFilter('repaired')}
+          className={`cursor-pointer rounded-xl border p-4 transition ${
+            status === 'repaired'
+              ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20'
+              : 'border-neutral-200 bg-white hover:border-emerald-300'
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-emerald-800">
+            <span>Repaired & Restocked</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
+              {summary?.repaired?.count ?? 0} restored
+            </span>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-emerald-900">
+            {summary?.repaired?.totalQuantity ?? '0'}{' '}
+            <span className="text-sm font-normal text-emerald-700">units salvaged</span>
+          </div>
+          <p className="mt-1 text-xs text-emerald-700">
+            Restored back into active sellable stock
+          </p>
+        </div>
+      </div>
+
+      {/* Status Filter Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-3">
+        <button
+          type="button"
+          onClick={() => handleStatusFilter('')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+            !status
+              ? 'bg-neutral-900 text-white'
+              : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
+          }`}
+        >
+          All Reports ({summary?.all?.count ?? total})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleStatusFilter('quarantined')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+            status === 'quarantined'
+              ? 'bg-amber-600 text-white'
+              : 'text-amber-800 bg-amber-50 hover:bg-amber-100'
+          }`}
+        >
+          Quarantined
+          <span className="rounded-full bg-amber-200/60 px-1.5 py-0.2 text-[10px] font-bold">
+            {summary?.quarantined?.count ?? 0}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleStatusFilter('disposed')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+            status === 'disposed'
+              ? 'bg-rose-700 text-white'
+              : 'text-rose-800 bg-rose-50 hover:bg-rose-100'
+          }`}
+        >
+          Disposed / Wasted Stock
+          <span className="rounded-full bg-rose-200/60 px-1.5 py-0.2 text-[10px] font-bold">
+            {summary?.disposed?.count ?? 0}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleStatusFilter('repaired')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+            status === 'repaired'
+              ? 'bg-emerald-700 text-white'
+              : 'text-emerald-800 bg-emerald-50 hover:bg-emerald-100'
+          }`}
+        >
+          Repaired
+          <span className="rounded-full bg-emerald-200/60 px-1.5 py-0.2 text-[10px] font-bold">
+            {summary?.repaired?.count ?? 0}
+          </span>
+        </button>
+      </div>
 
       {/* Filter Toolbar */}
       <div className="flex flex-col md:flex-row gap-3 bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
@@ -323,7 +436,11 @@ function DamageReportsPage() {
 
           <select
             value={status || ''}
-            onChange={handleStatusFilter}
+            onChange={(e) =>
+              handleStatusFilter(
+                e.target.value as 'quarantined' | 'repaired' | 'disposed' | '',
+              )
+            }
             className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none bg-white text-neutral-700"
           >
             <option value="">All Statuses</option>
@@ -374,16 +491,76 @@ function DamageReportsPage() {
                       {report.sourceLocationName}
                     </td>
                     <td className="py-3.5 px-4 text-neutral-900">
-                      <div>{report.productName}</div>
-                      <div className="text-xs font-mono text-neutral-400">
-                        {report.sku || 'No SKU'}
+                      <div className="font-semibold text-neutral-900">
+                        {report.productName}
+                      </div>
+                      <div className="text-xs text-neutral-500">
+                        {report.attributes &&
+                        Object.keys(report.attributes).length > 0 ? (
+                          <span className="text-neutral-700">
+                            {Object.entries(
+                              report.attributes as Record<string, string>,
+                            )
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(', ')}
+                            {' · '}
+                          </span>
+                        ) : null}
+                        <span className="font-mono text-neutral-400">
+                          SKU: {report.sku || 'No SKU'}
+                        </span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-right font-semibold text-neutral-900">
-                      {report.quantity} {report.unit}
+                    <td className="py-3.5 px-4 text-right">
+                      {report.status === 'disposed' ? (
+                        <div>
+                          <span className="font-bold text-rose-700">
+                            {report.quantity} {report.unit}
+                          </span>
+                          <span className="block text-[10px] font-semibold text-rose-500 uppercase tracking-tight">
+                            Wasted
+                          </span>
+                        </div>
+                      ) : report.status === 'repaired' ? (
+                        <div>
+                          <span className="font-bold text-emerald-700">
+                            {report.quantity} {report.unit}
+                          </span>
+                          <span className="block text-[10px] font-semibold text-emerald-600 uppercase tracking-tight">
+                            Restored
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="font-bold text-amber-800">
+                            {report.quantity} {report.unit}
+                          </span>
+                          <span className="block text-[10px] font-semibold text-amber-600 uppercase tracking-tight">
+                            In Quarantine
+                          </span>
+                        </div>
+                      )}
                     </td>
-                    <td className="py-3.5 px-4 text-neutral-700 max-w-xs truncate" title={report.reason}>
-                      {report.reason}
+                    <td className="py-3.5 px-4 text-neutral-700 max-w-xs">
+                      <div
+                        className="text-xs text-neutral-800 truncate"
+                        title={report.reason}
+                      >
+                        {report.reason}
+                      </div>
+                      {report.resolutionNotes ? (
+                        <div
+                          className="mt-0.5 text-xs text-neutral-500 truncate"
+                          title={report.resolutionNotes}
+                        >
+                          <span className="font-medium text-neutral-600">
+                            {report.status === 'disposed'
+                              ? 'Disposal Note: '
+                              : 'Note: '}
+                          </span>
+                          {report.resolutionNotes}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       {report.status === 'quarantined' && (
@@ -416,9 +593,18 @@ function DamageReportsPage() {
                           Resolve
                         </button>
                       ) : (
-                        <span className="text-xs text-neutral-400" title={report.resolutionNotes || ''}>
-                          Resolved
-                        </span>
+                        <div className="text-xs text-neutral-500 text-right">
+                          <span className="font-medium text-neutral-700">
+                            {report.status === 'disposed'
+                              ? 'Written Off'
+                              : 'Restored'}
+                          </span>
+                          {report.resolverUsername ? (
+                            <div className="text-[11px] text-neutral-400">
+                              by {report.resolverUsername}
+                            </div>
+                          ) : null}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -548,9 +734,15 @@ function DamageReportsPage() {
                 <div className="relative">
                   <input
                     type="number"
-                    min="0.001"
+                    min={
+                      selectedSourceItem?.product.measurementType === 'count' ||
+                      selectedSourceItem?.product.unit === 'piece'
+                        ? '1'
+                        : '0.001'
+                    }
                     step={
-                      selectedSourceItem?.product.measurementType === 'count'
+                      selectedSourceItem?.product.measurementType === 'count' ||
+                      selectedSourceItem?.product.unit === 'piece'
                         ? '1'
                         : '0.001'
                     }

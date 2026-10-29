@@ -91,6 +91,8 @@ export async function createSale(input: CreateSaleInput, userId: string) {
         sellingPrice: productVariants.discountedPrice,
         variantActive: productVariants.isActive,
         productName: products.name,
+        measurementType: products.measurementType,
+        unit: products.unit,
         productActive: products.isActive,
       })
       .from(productVariants)
@@ -113,6 +115,17 @@ export async function createSale(input: CreateSaleInput, userId: string) {
     }
 
     const variantMap = new Map(variantRows.map((v) => [v.id, v]))
+
+    for (const item of input.items) {
+      const v = variantMap.get(item.variantId)
+      if (v && (v.measurementType === 'count' || v.unit === 'piece')) {
+        if (!Number.isInteger(Number(item.quantity))) {
+          throw new Error(
+            `Quantity for ${v.productName} (${v.unit}) must be a whole number`,
+          )
+        }
+      }
+    }
 
     // 4. Lock existing inventory rows for this location
     const inventoryRows = await tx

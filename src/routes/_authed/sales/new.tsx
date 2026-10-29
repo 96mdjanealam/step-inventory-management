@@ -134,6 +134,17 @@ function NewSalePage() {
       return
     }
 
+    for (const item of validItems) {
+      const info = getVariantInfo(item.variantId)
+      const isCount = info?.measurementType === 'count' || info?.unit === 'piece'
+      if (isCount && !Number.isInteger(Number(item.quantity))) {
+        setError(
+          `Quantity for ${info?.productName || 'item'} (${info?.unit || 'piece'}) must be a whole number`,
+        )
+        return
+      }
+    }
+
     try {
       setPending(true)
       const sale = await createSale({
@@ -363,9 +374,17 @@ function NewSalePage() {
                       <input
                         type="number"
                         step={
-                          info?.measurementType === 'count' ? '1' : '0.001'
+                          info?.measurementType === 'count' ||
+                          info?.unit === 'piece'
+                            ? '1'
+                            : '0.001'
                         }
-                        min="0.001"
+                        min={
+                          info?.measurementType === 'count' ||
+                          info?.unit === 'piece'
+                            ? '1'
+                            : '0.001'
+                        }
                         value={item.quantity}
                         onChange={(e) =>
                           handleItemChange(idx, 'quantity', e.target.value)

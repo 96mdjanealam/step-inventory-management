@@ -9,6 +9,7 @@ import { requireAdmin, requireUser } from '../middleware/auth.ts'
 import {
   createStore,
   listLocations,
+  listLocationsWithStock,
   toggleLocationActive,
   updateLocation,
 } from '../services/locations.ts'
@@ -17,6 +18,11 @@ export const listLocationsFn = createServerFn({ method: 'GET' })
   .middleware([requireUser])
   .validator(listLocationsSchema)
   .handler(async ({ data }) => listLocations(data))
+
+export const listLocationsWithStockFn = createServerFn({ method: 'GET' })
+  .middleware([requireUser])
+  .validator(listLocationsSchema)
+  .handler(async ({ data }) => listLocationsWithStock(data))
 
 export const createStoreFn = createServerFn({ method: 'POST' })
   .middleware([requireAdmin])

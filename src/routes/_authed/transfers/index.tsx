@@ -1,12 +1,8 @@
-import { useState } from 'react'
-import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
-import { useServerFn } from '@tanstack/react-start'
+import { useMemo } from 'react'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
-import {
-  createTransferFn,
-  listTransfersFn,
-} from '../../../server/functions/transfers.ts'
+import { listTransfersFn } from '../../../server/functions/transfers.ts'
 
 const searchSchema = z.object({
   page: z.number().int().min(1).default(1).catch(1),
@@ -41,108 +37,59 @@ function TransfersPage() {
   const { items, total, page, pageSize, locations } = Route.useLoaderData()
   const { search, locationId } = Route.useSearch()
   const navigate = Route.useNavigate()
-  const router = useRouter()
 
-  const createTransfer = useServerFn(createTransferFn)
-
-  // Modal State
-  const [showModal, setShowModal] = useState(false)
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // Eligible locations for transfers (exclude Damaged Stock)
+  const eligibleLocations = useMemo(
+    () => locations.filter((l) => l.type !== 'damaged' && l.isActive),
+    [locations],
+  )
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const eligibleLocations = locations.filter((l) => l.type !== 'damaged')
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const value = String(
-      new FormData(event.currentTarget).get('search') ?? '',
-    ).trim()
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: 1,
-        search: value || undefined,
-      }),
-    })
-  }
-
-  function handleLocationFilter(selectedLocId: string) {
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: 1,
-        locationId: selectedLocId || undefined,
-      }),
-    })
-  }
-
-  async function handleTransferSubmit(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault()
-    setError(null)
-
     const form = new FormData(event.currentTarget)
-    const variantId = String(form.get('variantId') ?? '').trim()
-    const sourceLocationId = String(form.get('sourceLocationId') ?? '').trim()
-    const destinationLocationId = String(
-      form.get('destinationLocationId') ?? '',
-    ).trim()
-    const quantity = String(form.get('quantity') ?? '').trim()
-    const notes = String(form.get('notes') ?? '').trim() || undefined
+    const q = String(form.get('search') ?? '').trim()
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        page: 1,
+        search: q || undefined,
+      }),
+    })
+  }
 
-    if (!variantId || !sourceLocationId || !destinationLocationId || !quantity) {
-      setError('Please fill out all required fields')
-      return
-    }
-
-    if (sourceLocationId === destinationLocationId) {
-      setError('Source and destination locations must be different')
-      return
-    }
-
-    setPending(true)
-    try {
-      await createTransfer({
-        data: {
-          variantId,
-          sourceLocationId,
-          destinationLocationId,
-          quantity,
-          notes,
-        },
-      })
-      await router.invalidate()
-      setShowModal(false)
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to complete stock transfer',
-      )
-    } finally {
-      setPending(false)
-    }
+  function handleLocationFilter(newLocId: string) {
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        page: 1,
+        locationId: newLocId || undefined,
+      }),
+    })
   }
 
   return (
     <main className="mx-auto max-w-6xl p-6">
+      {/* Top Header */}
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Stock Transfers</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+            Stock Transfers
+          </h1>
           <p className="text-sm text-gray-500">
-            Dispatch and track inventory movements between warehouses and stores
+            Dispatch and track inventory movements between warehouses and retail stores
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setError(null)
-            setShowModal(true)
-          }}
-          className="rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
+        <Link
+          to="/transfers/new"
+          className="inline-flex items-center gap-1.5 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
         >
-          + New Transfer
-        </button>
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          New Transfer
+        </Link>
       </div>
 
       {/* Filter and Search Bar */}
@@ -151,12 +98,12 @@ function TransfersPage() {
           <input
             name="search"
             defaultValue={search ?? ''}
-            placeholder="Search by product, SKU, or location name"
-            className="flex-1 rounded border px-3 py-2 text-sm"
+            placeholder="Search by product, SKU, or location name..."
+            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
           />
           <button
             type="submit"
-            className="rounded bg-black px-3 py-2 text-sm text-white hover:bg-gray-800"
+            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
           >
             Search
           </button>
@@ -166,7 +113,7 @@ function TransfersPage() {
           <select
             value={locationId ?? ''}
             onChange={(e) => handleLocationFilter(e.target.value)}
-            className="rounded border px-3 py-2 text-sm"
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
           >
             <option value="">All Facilities & Stores</option>
             {eligibleLocations.map((l) => (
@@ -180,67 +127,127 @@ function TransfersPage() {
 
       {/* Transfers Table */}
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-12 text-center">
+        <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center bg-white">
           <p className="text-sm text-gray-500">
-            No stock transfers recorded. Use "+ New Transfer" to dispatch inventory.
+            No stock transfers recorded. Use "New Transfer" to dispatch inventory.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded border">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
-            <thead className="border-b bg-gray-50 text-xs text-gray-700 uppercase">
+            <thead className="border-b bg-gray-50 text-xs font-semibold text-gray-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Product / SKU</th>
+                <th className="px-4 py-3">Product / Variant</th>
                 <th className="px-4 py-3">Movement Route</th>
                 <th className="px-4 py-3">Quantity</th>
                 <th className="px-4 py-3">Dispatched By</th>
                 <th className="px-4 py-3">Reference / Notes</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {items.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50/50">
-                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
-                    {new Date(t.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 font-medium">
-                    <Link
-                      to="/products/$productId"
-                      params={{ productId: t.product.id }}
-                      className="text-gray-900 hover:underline"
-                    >
-                      {t.product.name}
-                    </Link>
-                    <div className="text-xs text-gray-400">
-                      SKU: {t.variant.sku || 'Default'}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-800">
-                        {t.sourceLocation?.name ?? '—'}
+            <tbody className="divide-y divide-gray-100">
+              {items.map((t) => {
+                const img = t.variant.image || t.product.images?.[0]
+                const attrs =
+                  t.variant.attributes && typeof t.variant.attributes === 'object'
+                    ? Object.entries(t.variant.attributes)
+                    : []
+
+                return (
+                  <tr key={t.id} className="hover:bg-gray-50/50">
+                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      {new Date(t.createdAt).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+
+                    {/* Product & Variant with Image */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded border border-gray-200 bg-gray-50 flex items-center justify-center">
+                          {img ? (
+                            <img
+                              src={img}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                ;(e.target as HTMLImageElement).src =
+                                  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
+                              }}
+                            />
+                          ) : (
+                            <svg
+                              className="h-5 w-5 text-gray-300"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          )}
+                        </div>
+
+                        <div>
+                          <Link
+                            to="/products/$productId"
+                            params={{ productId: t.product.id }}
+                            className="font-semibold text-gray-900 hover:underline"
+                          >
+                            {t.product.name}
+                          </Link>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <span>SKU: {t.variant.sku || 'Default'}</span>
+                            {attrs.length > 0 && (
+                              <span>
+                                · {attrs.map(([k, v]) => `${k}: ${v}`).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Inline Movement Route */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5 text-xs font-medium">
+                        <span className="rounded bg-gray-100 px-2.5 py-1 text-gray-800">
+                          {t.sourceLocation?.name ?? '—'}
+                        </span>
+                        <span className="text-gray-400 font-bold shrink-0">→</span>
+                        <span className="rounded bg-blue-50 px-2.5 py-1 text-blue-700">
+                          {t.destinationLocation?.name ?? '—'}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Quantity */}
+                    <td className="px-4 py-3 font-bold text-gray-900 whitespace-nowrap">
+                      {t.quantity}{' '}
+                      <span className="text-xs font-normal text-gray-500">
+                        {t.product.unit}
                       </span>
-                      <span className="text-gray-400">→</span>
-                      <span className="font-semibold text-blue-700">
-                        {t.destinationLocation?.name ?? '—'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-bold text-gray-900">
-                    {t.quantity}{' '}
-                    <span className="text-xs font-normal text-gray-500">
-                      {t.product.unit}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-600">
-                    {t.user?.username ?? t.user?.role ?? 'System'}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-600">
-                    {t.reason || '—'}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+
+                    {/* Dispatched By */}
+                    <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
+                      {t.user?.username ?? t.user?.role ?? 'System'}
+                    </td>
+
+                    {/* Notes */}
+                    <td className="px-4 py-3 text-xs text-gray-600 max-w-xs truncate" title={t.reason || ''}>
+                      {t.reason || '—'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -256,7 +263,7 @@ function TransfersPage() {
             <Link
               to="/transfers"
               search={(prev) => ({ ...prev, page: page - 1 })}
-              className="text-black underline"
+              className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               Previous
             </Link>
@@ -265,113 +272,13 @@ function TransfersPage() {
             <Link
               to="/transfers"
               search={(prev) => ({ ...prev, page: page + 1 })}
-              className="text-black underline"
+              className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               Next
             </Link>
           ) : null}
         </div>
       </div>
-
-      {/* New Transfer Modal */}
-      {showModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Initiate Stock Transfer</h3>
-
-            {error ? (
-              <p className="mb-3 rounded bg-red-50 p-2 text-xs text-red-600">
-                {error}
-              </p>
-            ) : null}
-
-            <form onSubmit={handleTransferSubmit} className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Variant ID *
-                <input
-                  name="variantId"
-                  required
-                  placeholder="Paste variant UUID"
-                  className="rounded border px-3 py-2 text-sm"
-                />
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Source Location *
-                  <select
-                    name="sourceLocationId"
-                    required
-                    className="rounded border px-3 py-2 text-sm"
-                  >
-                    {eligibleLocations.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Destination Location *
-                  <select
-                    name="destinationLocationId"
-                    required
-                    defaultValue={eligibleLocations[1]?.id}
-                    className="rounded border px-3 py-2 text-sm"
-                  >
-                    {eligibleLocations.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Transfer Quantity *
-                <input
-                  name="quantity"
-                  required
-                  step="0.001"
-                  min="0.001"
-                  type="number"
-                  placeholder="e.g. 25"
-                  className="rounded border px-3 py-2 text-sm"
-                />
-              </label>
-
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Dispatch Notes / Reference
-                <input
-                  name="notes"
-                  placeholder="e.g. Weekly store restock / Van dispatch #4"
-                  className="rounded border px-3 py-2 text-sm"
-                />
-              </label>
-
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {pending ? 'Dispatching...' : 'Complete Transfer'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
     </main>
   )
 }
-

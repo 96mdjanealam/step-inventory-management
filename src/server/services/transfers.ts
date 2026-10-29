@@ -42,6 +42,7 @@ export async function createTransfer(input: CreateTransferInput, userId: string)
         productId: productVariants.productId,
         sku: productVariants.sku,
         productName: products.name,
+        measurementType: products.measurementType,
         unit: products.unit,
         isActive: productVariants.isActive,
       })
@@ -52,6 +53,12 @@ export async function createTransfer(input: CreateTransferInput, userId: string)
 
     if (!variant || !variant.isActive) {
       throw new Error('Active product variant not found')
+    }
+
+    if (variant.measurementType === 'count' || variant.unit === 'piece') {
+      if (!Number.isInteger(Number(input.quantity))) {
+        throw new Error(`Quantity for ${variant.unit} items must be a whole number`)
+      }
     }
 
     // 2. Verify source & destination locations exist, are active, and not damaged
@@ -239,10 +246,13 @@ export async function listTransfers(input: ListTransfersInput = {}) {
           id: products.id,
           name: products.name,
           unit: products.unit,
+          images: products.images,
         },
         variant: {
           id: productVariants.id,
           sku: productVariants.sku,
+          attributes: productVariants.attributes,
+          image: productVariants.image,
           discountedPrice: productVariants.discountedPrice,
         },
         sourceLocation: {
@@ -285,5 +295,36 @@ export async function listTransfers(input: ListTransfersInput = {}) {
   ])
 
   return { items, total, page, pageSize }
+}
+
+export async function getLocationStockForTransfer(locationId: string) {
+  return await db
+    .select({
+      id: inventory.id,
+      productId: inventory.productId,
+      productName: products.name,
+      category: products.category,
+      measurementType: products.measurementType,
+      unit: products.unit,
+      productImages: products.images,
+      variantId: inventory.variantId,
+      sku: productVariants.sku,
+      attributes: productVariants.attributes,
+      variantImage: productVariants.image,
+      quantity: inventory.quantity,
+      discountedPrice: productVariants.discountedPrice,
+    })
+    .from(inventory)
+    .innerJoin(products, eq(inventory.productId, products.id))
+    .innerJoin(productVariants, eq(inventory.variantId, productVariants.id))
+    .where(
+      and(
+        eq(inventory.locationId, locationId),
+        sql`${inventory.quantity} > 0`,
+        eq(products.isActive, true),
+        eq(productVariants.isActive, true),
+      ),
+    )
+    .orderBy(products.name, productVariants.sku)
 }
 

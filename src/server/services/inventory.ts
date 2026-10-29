@@ -40,6 +40,7 @@ export async function addStock(input: AddStockInput, userId: string) {
         productId: productVariants.productId,
         sku: productVariants.sku,
         productName: products.name,
+        measurementType: products.measurementType,
         unit: products.unit,
         isActive: productVariants.isActive,
       })
@@ -50,6 +51,12 @@ export async function addStock(input: AddStockInput, userId: string) {
 
     if (!variant || !variant.isActive) {
       throw new Error('Active product variant not found')
+    }
+
+    if (variant.measurementType === 'count' || variant.unit === 'piece') {
+      if (!Number.isInteger(Number(input.quantity))) {
+        throw new Error(`Quantity for ${variant.unit} items must be a whole number`)
+      }
     }
 
     // 2. Verify destination location exists and is active
@@ -163,6 +170,7 @@ export async function adjustStock(input: AdjustStockInput, userId: string) {
         productId: productVariants.productId,
         sku: productVariants.sku,
         productName: products.name,
+        measurementType: products.measurementType,
         unit: products.unit,
       })
       .from(productVariants)
@@ -172,6 +180,12 @@ export async function adjustStock(input: AdjustStockInput, userId: string) {
 
     if (!variant) {
       throw new Error('Product variant not found')
+    }
+
+    if (variant.measurementType === 'count' || variant.unit === 'piece') {
+      if (!Number.isInteger(Number(input.quantity))) {
+        throw new Error(`Quantity for ${variant.unit} items must be a whole number`)
+      }
     }
 
     // 2. Verify location exists
@@ -303,6 +317,7 @@ export async function listInventory(input: ListInventoryInput = {}) {
   const conditions = [
     input.locationId ? eq(inventory.locationId, input.locationId) : undefined,
     input.productId ? eq(inventory.productId, input.productId) : undefined,
+    !input.includeZeroQuantity ? sql`${inventory.quantity} > 0` : undefined,
     searchPattern
       ? or(
           ilike(products.name, `%${searchPattern}%`),

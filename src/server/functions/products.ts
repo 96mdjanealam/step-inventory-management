@@ -12,6 +12,7 @@ import {
   archiveProduct,
   createProduct,
   getProductById,
+  listActiveProductsWithVariants,
   listProducts,
   restoreProduct,
   updateProduct,
@@ -46,3 +47,9 @@ export const restoreProductFn = createServerFn({ method: 'POST' })
   .middleware([requireAdmin])
   .validator(restoreProductSchema)
   .handler(async ({ data, context }) => restoreProduct(data.id, context.user.id))
+
+export const listActiveProductsWithVariantsFn = createServerFn({
+  method: 'GET',
+})
+  .middleware([requireUser])
+  .handler(async () => listActiveProductsWithVariants())

@@ -132,6 +132,7 @@ function ReturnsPage() {
               <tr>
                 <th className="py-3 px-4">Return #</th>
                 <th className="py-3 px-4">Original Order</th>
+                <th className="py-3 px-4">Returned Item Details</th>
                 <th className="py-3 px-4">Date & Time</th>
                 <th className="py-3 px-4">Store Location</th>
                 <th className="py-3 px-4">Reason</th>
@@ -143,7 +144,7 @@ function ReturnsPage() {
             <tbody className="divide-y divide-neutral-100">
               {returns.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-neutral-400">
+                  <td colSpan={9} className="py-12 text-center text-neutral-400">
                     No customer returns found matching your filters.
                   </td>
                 </tr>
@@ -161,6 +162,50 @@ function ReturnsPage() {
                       >
                         {ret.saleOrderNumber}
                       </Link>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {ret.items && ret.items.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {ret.items.map((item, idx) => {
+                            const attrEntries = Object.entries(
+                              (item.attributes as Record<string, string>) || {},
+                            )
+                            const attrString =
+                              attrEntries.length > 0
+                                ? attrEntries
+                                    .map(([k, v]) => `${k}: ${v}`)
+                                    .join(', ')
+                                : item.sku
+                                  ? `SKU: ${item.sku}`
+                                  : 'Default'
+
+                            return (
+                              <div
+                                key={idx}
+                                className="text-xs font-medium text-neutral-800"
+                              >
+                                <span className="font-semibold text-neutral-900">
+                                  {item.productName}
+                                </span>
+                                <span className="text-neutral-400 mx-1.5">
+                                  /
+                                </span>
+                                <span className="text-neutral-600">
+                                  {attrString}
+                                </span>
+                                <span className="text-neutral-400 mx-1.5">
+                                  /
+                                </span>
+                                <span className="font-bold text-neutral-900">
+                                  {item.quantity} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-neutral-400">—</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-neutral-500 whitespace-nowrap">
                       {new Date(ret.createdAt).toLocaleString(undefined, {

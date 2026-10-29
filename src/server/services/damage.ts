@@ -1,4 +1,5 @@
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.ts'
 import {
   damageReports,
@@ -64,6 +65,7 @@ export async function reportDamage(input: ReportDamageInput, userId: string) {
         variantActive: productVariants.isActive,
         productName: products.name,
         productActive: products.isActive,
+        measurementType: products.measurementType,
         unit: products.unit,
       })
       .from(productVariants)
@@ -73,6 +75,12 @@ export async function reportDamage(input: ReportDamageInput, userId: string) {
 
     if (!variant || !variant.variantActive || !variant.productActive) {
       throw new Error('Active product variant not found')
+    }
+
+    if (variant.measurementType === 'count' || variant.unit === 'piece') {
+      if (!Number.isInteger(Number(input.quantity))) {
+        throw new Error(`Quantity for ${variant.unit} items must be a whole number`)
+      }
     }
 
     // 4. Lock inventory rows at source location and central damaged location
@@ -499,6 +507,8 @@ export async function listDamageReports(input: ListDamageReportsInput = {}) {
     .innerJoin(productVariants, eq(damageReports.variantId, productVariants.id))
     .where(whereClause)
 
+  const resolverProfiles = alias(profiles, 'resolver_profiles')
+
   const rows = await db
     .select({
       id: damageReports.id,
@@ -510,6 +520,7 @@ export async function listDamageReports(input: ListDamageReportsInput = {}) {
       unit: products.unit,
       variantId: damageReports.variantId,
       sku: productVariants.sku,
+      attributes: productVariants.attributes,
       quantity: damageReports.quantity,
       reason: damageReports.reason,
       status: damageReports.status,
@@ -519,6 +530,7 @@ export async function listDamageReports(input: ListDamageReportsInput = {}) {
       resolvedBy: damageReports.resolvedBy,
       reportedBy: damageReports.reportedBy,
       reporterUsername: profiles.username,
+      resolverUsername: resolverProfiles.username,
       createdAt: damageReports.createdAt,
       updatedAt: damageReports.updatedAt,
     })
@@ -527,10 +539,43 @@ export async function listDamageReports(input: ListDamageReportsInput = {}) {
     .innerJoin(products, eq(damageReports.productId, products.id))
     .innerJoin(productVariants, eq(damageReports.variantId, productVariants.id))
     .leftJoin(profiles, eq(damageReports.reportedBy, profiles.id))
+    .leftJoin(resolverProfiles, eq(damageReports.resolvedBy, resolverProfiles.id))
     .where(whereClause)
     .orderBy(desc(damageReports.createdAt))
     .limit(pageSize)
     .offset(offset)
+
+  // Status breakdown summary (counts and total quantities)
+  const summaryRows = await db
+    .select({
+      status: damageReports.status,
+      count: sql<number>`count(*)::int`,
+      totalQuantity: sql<string>`coalesce(sum(${damageReports.quantity}), 0)::text`,
+    })
+    .from(damageReports)
+    .groupBy(damageReports.status)
+
+  const summary = {
+    all: { count: 0, totalQuantity: '0' },
+    quarantined: { count: 0, totalQuantity: '0' },
+    disposed: { count: 0, totalQuantity: '0' },
+    repaired: { count: 0, totalQuantity: '0' },
+  }
+
+  for (const row of summaryRows) {
+    const key = row.status as 'quarantined' | 'disposed' | 'repaired'
+    if (summary[key]) {
+      const num = Number(row.totalQuantity)
+      summary[key] = {
+        count: row.count,
+        totalQuantity: num.toLocaleString(undefined, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 3,
+        }),
+      }
+    }
+    summary.all.count += row.count
+  }
 
   return {
     damageReports: rows,
@@ -538,6 +583,7 @@ export async function listDamageReports(input: ListDamageReportsInput = {}) {
     page,
     pageSize,
     totalPages: Math.ceil((totalCountResult?.count || 0) / pageSize),
+    summary,
   }
 }
 

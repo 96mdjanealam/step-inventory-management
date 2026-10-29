@@ -35,3 +35,9 @@ export const listTransfersSchema = z.object({
 export type ListTransfersInput = z.input<typeof listTransfersSchema>
 export type ListTransfersOutput = z.output<typeof listTransfersSchema>
 
+export const getLocationStockSchema = z.object({
+  locationId: z.string().uuid('Valid location ID is required'),
+})
+
+export type GetLocationStockInput = z.infer<typeof getLocationStockSchema>
+

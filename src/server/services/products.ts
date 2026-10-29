@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { db } from '../db/index.ts'
 import { products, productVariants } from '../db/schema/index.ts'
 import { logActivity } from './activity-logs.ts'
@@ -28,7 +28,7 @@ function buildVariants(input: CreateProductInput) {
     {
       sku: input.sku,
       attributes: {},
-      image: undefined,
+      image: input.image,
       discountedPrice: input.discountedPrice,
       regularPrice: input.regularPrice,
     },
@@ -65,6 +65,7 @@ export async function createProduct(input: CreateProductInput, userId: string) {
           targetConsumer: input.targetConsumer,
           measurementType: input.measurementType,
           unit: input.unit,
+          images: input.images ?? [],
           description: input.description,
           slug,
           createdBy: userId,
@@ -137,10 +138,12 @@ export async function listProducts(input: ListProductsInput) {
         targetConsumer: products.targetConsumer,
         measurementType: products.measurementType,
         unit: products.unit,
+        images: products.images,
         isActive: products.isActive,
         createdAt: products.createdAt,
         discountedPrice: productVariants.discountedPrice,
         regularPrice: productVariants.regularPrice,
+        variantImage: productVariants.image,
       })
       .from(products)
       .leftJoin(
@@ -212,6 +215,7 @@ export async function updateProduct(
           name: input.name,
           category: input.category,
           targetConsumer: input.targetConsumer,
+          ...(input.images !== undefined ? { images: input.images } : {}),
           description: input.description ?? null,
           slug,
         })
@@ -305,4 +309,52 @@ export async function restoreProduct(id: string, userId?: string) {
 
     return restored
   })
+}
+
+export async function listActiveProductsWithVariants() {
+  const activeProds = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      category: products.category,
+      measurementType: products.measurementType,
+      unit: products.unit,
+    })
+    .from(products)
+    .where(eq(products.isActive, true))
+    .orderBy(products.name)
+
+  if (activeProds.length === 0) return []
+
+  const prodIds = activeProds.map((p) => p.id)
+  const variants = await db
+    .select({
+      id: productVariants.id,
+      productId: productVariants.productId,
+      sku: productVariants.sku,
+      attributes: productVariants.attributes,
+      discountedPrice: productVariants.discountedPrice,
+      regularPrice: productVariants.regularPrice,
+      isDefault: productVariants.isDefault,
+    })
+    .from(productVariants)
+    .where(
+      and(
+        inArray(productVariants.productId, prodIds),
+        eq(productVariants.isActive, true),
+      ),
+    )
+    .orderBy(desc(productVariants.isDefault), productVariants.sku)
+
+  const variantsByProd = new Map<string, typeof variants>()
+  for (const v of variants) {
+    const list = variantsByProd.get(v.productId) ?? []
+    list.push(v)
+    variantsByProd.set(v.productId, list)
+  }
+
+  return activeProds.map((p) => ({
+    ...p,
+    variants: variantsByProd.get(p.id) ?? [],
+  }))
 }
