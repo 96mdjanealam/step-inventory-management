@@ -148,10 +148,16 @@ function TransfersPage() {
             <tbody className="divide-y divide-gray-100">
               {items.map((t) => {
                 const img = t.variant.image || t.product.images?.[0]
-                const attrs =
+                const attrValues =
                   t.variant.attributes && typeof t.variant.attributes === 'object'
-                    ? Object.entries(t.variant.attributes)
+                    ? Object.values(t.variant.attributes)
+                        .map(String)
+                        .filter((v) => v.trim().length > 0)
                     : []
+                const sku = t.variant.sku?.trim()
+                const variantDetails = [sku, ...attrValues]
+                  .filter(Boolean)
+                  .join(' / ')
 
                 return (
                   <tr key={t.id} className="hover:bg-gray-50/50">
@@ -203,28 +209,30 @@ function TransfersPage() {
                           >
                             {t.product.name}
                           </Link>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                            <span>SKU: {t.variant.sku || 'Default'}</span>
-                            {attrs.length > 0 && (
-                              <span>
-                                · {attrs.map(([k, v]) => `${k}: ${v}`).join(', ')}
-                              </span>
-                            )}
-                          </div>
+                          {variantDetails ? (
+                            <div className="text-xs text-gray-500">
+                              {variantDetails}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </td>
 
-                    {/* Inline Movement Route */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1.5 text-xs font-medium">
-                        <span className="rounded bg-gray-100 px-2.5 py-1 text-gray-800">
-                          {t.sourceLocation?.name ?? '—'}
-                        </span>
-                        <span className="text-gray-400 font-bold shrink-0">→</span>
-                        <span className="rounded bg-blue-50 px-2.5 py-1 text-blue-700">
-                          {t.destinationLocation?.name ?? '—'}
-                        </span>
+                    {/* Vertical Movement Route: From / To without arrows */}
+                    <td className="px-4 py-3 text-xs leading-relaxed">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="truncate max-w-[200px]" title={t.sourceLocation?.name}>
+                          <span className="font-medium text-gray-400 mr-1">From:</span>
+                          <span className="font-medium text-gray-800">
+                            {t.sourceLocation?.name ?? '—'}
+                          </span>
+                        </div>
+                        <div className="truncate max-w-[200px]" title={t.destinationLocation?.name}>
+                          <span className="font-semibold text-blue-500 mr-1">To:</span>
+                          <span className="font-semibold text-blue-700">
+                            {t.destinationLocation?.name ?? '—'}
+                          </span>
+                        </div>
                       </div>
                     </td>
 
@@ -241,8 +249,8 @@ function TransfersPage() {
                       {t.user?.username ?? t.user?.role ?? 'System'}
                     </td>
 
-                    {/* Notes */}
-                    <td className="px-4 py-3 text-xs text-gray-600 max-w-xs truncate" title={t.reason || ''}>
+                    {/* Notes: wraps to 2nd line if needed */}
+                    <td className="px-4 py-3 text-xs text-gray-600 max-w-xs break-words leading-relaxed" title={t.reason || ''}>
                       {t.reason || '—'}
                     </td>
                   </tr>

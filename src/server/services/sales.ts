@@ -512,6 +512,7 @@ export async function getSaleById(saleId: string) {
       saleId: saleItems.saleId,
       productId: saleItems.productId,
       productName: products.name,
+      measurementType: products.measurementType,
       unit: products.unit,
       variantId: saleItems.variantId,
       sku: productVariants.sku,
