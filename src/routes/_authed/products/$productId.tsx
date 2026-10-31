@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon, Plus } from 'lucide-react'
+import { Select } from '../../../components/Select.tsx'
+import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import {
   archiveProductFn,
   getProductFn,
@@ -410,16 +412,15 @@ function ProductDetailPage() {
 
                   <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                     Target consumer
-                    <select
+                    <Select
                       name="targetConsumer"
                       defaultValue={product.targetConsumer}
-                      className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
                     >
                       <option value="unisex">Unisex</option>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
                       <option value="kids">Kids</option>
-                    </select>
+                    </Select>
                   </label>
                 </div>
 
@@ -611,9 +612,12 @@ function ProductDetailPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 font-medium">
-                      {v.sku || (
-                        <span className="italic text-gray-400">No SKU</span>
-                      )}
+                      <VariantDisplay
+                        variant={{
+                          attributes: v.attributes as Record<string, string>,
+                          sku: v.sku,
+                        }}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       {attrs.length === 0 ? (

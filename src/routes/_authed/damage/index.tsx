@@ -3,9 +3,11 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
-import { TablePagination } from '../../../components/TablePagination.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
+import { Select } from '../../../components/Select.tsx'
+import { TablePagination } from '../../../components/TablePagination.tsx'
 import { VariantSelect } from '../../../components/VariantSelect.tsx'
+import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listInventoryFn } from '../../../server/functions/inventory.ts'
 import {
@@ -99,17 +101,6 @@ function DamageReportsPage() {
         ...prev,
         page: 1,
         search: query || undefined,
-      }),
-    })
-  }
-
-  function handleLocationFilter(e: React.ChangeEvent<HTMLSelectElement>) {
-    const val = e.target.value
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: 1,
-        locationId: val || undefined,
       }),
     })
   }
@@ -415,33 +406,36 @@ function DamageReportsPage() {
         </form>
 
         <div className="flex flex-wrap gap-2 items-center">
-          <select
+          <LocationSelect
             value={locationId || ''}
-            onChange={handleLocationFilter}
-            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none bg-white text-neutral-700"
-          >
-            <option value="">All Source Locations</option>
-            {sellableLocations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name} ({loc.type === 'warehouse' ? 'Warehouse' : 'Store'})
-              </option>
-            ))}
-          </select>
+            onChange={(val) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  locationId: val || undefined,
+                  page: 1,
+                }),
+              })
+            }
+            placeholder="All Source Locations"
+            clearable
+            className="w-56"
+          />
 
-          <select
+          <Select
             value={status || ''}
             onChange={(e) =>
               handleStatusFilter(
                 e.target.value as 'quarantined' | 'repaired' | 'disposed' | '',
               )
             }
-            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none bg-white text-neutral-700"
+            sizeVariant="sm"
           >
             <option value="">All Statuses</option>
             <option value="quarantined">Quarantined</option>
             <option value="repaired">Repaired</option>
             <option value="disposed">Disposed</option>
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -488,22 +482,12 @@ function DamageReportsPage() {
                       <div className="font-semibold text-neutral-900">
                         {report.productName}
                       </div>
-                      <div className="text-xs text-neutral-500">
-                        {report.attributes &&
-                        Object.keys(report.attributes).length > 0 ? (
-                          <span className="text-neutral-700">
-                            {Object.entries(
-                              report.attributes as Record<string, string>,
-                            )
-                              .map(([k, v]) => `${k}: ${v}`)
-                              .join(', ')}
-                            {' · '}
-                          </span>
-                        ) : null}
-                        <span className="font-mono text-neutral-400">
-                          SKU: {report.sku || 'No SKU'}
-                        </span>
-                      </div>
+                      <VariantDisplay
+                        variant={{
+                          attributes: report.attributes as Record<string, string>,
+                          sku: report.sku,
+                        }}
+                      />
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       {report.status === 'disposed' ? (
@@ -821,19 +805,11 @@ function DamageReportsPage() {
                   <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
                     Target Restock Location <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <LocationSelect
                     value={resolveLocationId}
-                    onChange={(e) => setResolveLocationId(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white font-medium text-neutral-800"
-                    required
-                  >
-                    <option value="">-- Select Target Location --</option>
-                    {sellableLocations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name} ({loc.type === 'warehouse' ? 'Warehouse' : 'Store'})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setResolveLocationId(val)}
+                    placeholder="-- Select Target Location --"
+                  />
                 </div>
               )}
 

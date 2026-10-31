@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon } from 'lucide-react'
+import { formatVariantInfo } from '../lib/display-formatters.tsx'
 import { listStoreInventoryPaginatedFn } from '../server/functions/sales.ts'
 import { listProductVariantsPaginatedFn } from '../server/functions/variants.ts'
 import { PaginatedSelect } from './PaginatedSelect.tsx'
@@ -112,13 +113,6 @@ export function VariantSelect({
     [fetchStoreInventory, fetchCatalogVariants, locationId, productId],
   )
 
-  function formatAttributes(attrs?: Record<string, string> | null) {
-    if (!attrs || typeof attrs !== 'object') return ''
-    return Object.entries(attrs)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(', ')
-  }
-
   function getThumbnail(v: VariantSelectItem) {
     const src = v.variantImage || v.image || v.productImages?.[0]
     return (
@@ -149,9 +143,10 @@ export function VariantSelect({
       onChange={onChange}
       fetcher={fetcher}
       getItemValue={(v) => v.variantId || v.id}
-      getItemLabel={(v) =>
-        `${v.sku ? `SKU: ${v.sku}` : 'Default'} · $${Number(v.price).toFixed(2)}`
-      }
+      getItemLabel={(v) => {
+        const { title, subtitle } = formatVariantInfo(v)
+        return `${title}${subtitle ? ` · ${subtitle}` : ''} · $${Number(v.price).toFixed(2)}`
+      }}
       placeholder={computedPlaceholder}
       searchPlaceholder="Search variants by SKU or attributes..."
       disabled={disabled || (!locationId && !productId)}
@@ -159,19 +154,23 @@ export function VariantSelect({
       clearable={clearable}
       initialSelectedItem={initialVariant}
       reloadTrigger={`${locationId}-${productId}`}
-      renderSelected={(v) =>
-        v ? (
+      renderSelected={(v) => {
+        if (!v) return null
+        const { title, subtitle } = formatVariantInfo(v)
+        return (
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="flex items-center gap-2 truncate">
               {getThumbnail(v)}
-              <span className="font-semibold text-neutral-900 truncate">
-                {v.sku ? `SKU: ${v.sku}` : 'Default Variant'}
-              </span>
-              {v.attributes && (
-                <span className="text-xs text-neutral-500 truncate">
-                  ({formatAttributes(v.attributes)})
+              <div className="truncate">
+                <span className="font-semibold text-neutral-900 truncate">
+                  {title}
                 </span>
-              )}
+                {subtitle && (
+                  <span className="text-xs text-neutral-500 font-normal ml-2">
+                    {subtitle}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="text-right flex-shrink-0 text-xs">
               <span className="font-bold text-neutral-900 mr-2">
@@ -184,34 +183,38 @@ export function VariantSelect({
               )}
             </div>
           </div>
-        ) : null
-      }
-      renderItem={(v) => (
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {getThumbnail(v)}
-            <div className="min-w-0">
-              <div className="font-semibold text-neutral-900 truncate">
-                {v.sku ? `SKU: ${v.sku}` : 'Default Variant'}
-              </div>
-              <div className="text-xs text-neutral-500 truncate">
-                {v.productName ? `${v.productName} · ` : ''}
-                {v.attributes ? formatAttributes(v.attributes) : 'Standard'}
+        )
+      }}
+      renderItem={(v) => {
+        const { title, subtitle } = formatVariantInfo(v)
+        return (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {getThumbnail(v)}
+              <div className="min-w-0">
+                <div className="font-semibold text-neutral-900 truncate">
+                  {title}
+                </div>
+                {subtitle ? (
+                  <div className="text-xs text-neutral-500 truncate">
+                    {subtitle}
+                  </div>
+                ) : null}
               </div>
             </div>
-          </div>
-          <div className="text-right flex-shrink-0 text-xs">
-            <div className="font-bold text-neutral-900">
-              ${Number(v.price).toFixed(2)}
-            </div>
-            {v.quantity !== undefined && (
-              <div className="text-emerald-700 font-semibold">
-                Stock: {v.quantity} {v.unit}
+            <div className="text-right flex-shrink-0 text-xs">
+              <div className="font-bold text-neutral-900">
+                ${Number(v.price).toFixed(2)}
               </div>
-            )}
+              {v.quantity !== undefined && (
+                <div className="text-emerald-700 font-semibold">
+                  Stock: {v.quantity} {v.unit}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }}
     />
   )
 }

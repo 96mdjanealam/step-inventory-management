@@ -34,9 +34,28 @@ export async function createTransfer(input: CreateTransferInput, userId: string)
     throw new Error('Source and destination locations must be different')
   }
 
+  // 1. Gather all items to transfer
+  const rawItems: Array<{ variantId: string; quantity: string }> = []
+  if (input.items && input.items.length > 0) {
+    rawItems.push(...input.items)
+  } else if (input.variantId && input.quantity) {
+    rawItems.push({ variantId: input.variantId, quantity: input.quantity })
+  } else {
+    throw new Error('At least one item must be provided for transfer')
+  }
+
+  // Aggregate quantities by variantId if repeated
+  const aggregatedMap = new Map<string, bigint>()
+  for (const item of rawItems) {
+    const cur = aggregatedMap.get(item.variantId) || 0n
+    aggregatedMap.set(item.variantId, cur + toFixed3(item.quantity))
+  }
+
+  const distinctVariantIds = Array.from(aggregatedMap.keys()).sort()
+
   return await db.transaction(async (tx) => {
-    // 1. Verify variant exists and is active
-    const [variant] = await tx
+    // 2. Fetch all variants and products
+    const variantRows = await tx
       .select({
         id: productVariants.id,
         productId: productVariants.productId,
@@ -48,20 +67,29 @@ export async function createTransfer(input: CreateTransferInput, userId: string)
       })
       .from(productVariants)
       .innerJoin(products, eq(productVariants.productId, products.id))
-      .where(eq(productVariants.id, input.variantId))
-      .limit(1)
+      .where(inArray(productVariants.id, distinctVariantIds))
 
-    if (!variant || !variant.isActive) {
-      throw new Error('Active product variant not found')
+    if (variantRows.length !== distinctVariantIds.length) {
+      throw new Error('One or more selected product variants could not be found')
     }
 
-    if (variant.measurementType === 'count' || variant.unit === 'piece') {
-      if (!Number.isInteger(Number(input.quantity))) {
-        throw new Error(`Quantity for ${variant.unit} items must be a whole number`)
+    const variantMap = new Map(variantRows.map((v) => [v.id, v]))
+
+    // Validate active status and whole numbers for count/piece
+    for (const [vId, qtyBig] of aggregatedMap.entries()) {
+      const v = variantMap.get(vId)!
+      if (!v.isActive) {
+        throw new Error(`Variant "${v.sku || v.productName}" is inactive`)
+      }
+      if (v.measurementType === 'count' || v.unit === 'piece') {
+        const qtyNum = Number(fromFixed3(qtyBig))
+        if (!Number.isInteger(qtyNum)) {
+          throw new Error(`Quantity for ${v.unit} items (${v.productName}) must be a whole number`)
+        }
       }
     }
 
-    // 2. Verify source & destination locations exist, are active, and not damaged
+    // 3. Verify source & destination locations exist, are active, and not damaged
     const [sourceLocation] = await tx
       .select()
       .from(locations)
@@ -88,13 +116,13 @@ export async function createTransfer(input: CreateTransferInput, userId: string)
       throw new Error('Cannot transfer stock into Central Damaged location via standard transfer (use damage report workflow)')
     }
 
-    // 3. Deadlock-free row-locking: query both source & destination rows in a single statement
+    // 4. Deadlock-free row-locking: query both source & destination rows in a single batch
     const lockedRows = await tx
       .select()
       .from(inventory)
       .where(
         and(
-          eq(inventory.variantId, input.variantId),
+          inArray(inventory.variantId, distinctVariantIds),
           inArray(inventory.locationId, [
             input.sourceLocationId,
             input.destinationLocationId,
@@ -103,105 +131,124 @@ export async function createTransfer(input: CreateTransferInput, userId: string)
       )
       .for('update')
 
-    const sourceRow = lockedRows.find(
-      (r) => r.locationId === input.sourceLocationId,
-    )
-    const destRow = lockedRows.find(
-      (r) => r.locationId === input.destinationLocationId,
-    )
+    const transferBatchRef = `TRF-${Date.now().toString(36).toUpperCase()}`
+    const movements = []
+    const updatedSources = []
+    const updatedDests = []
 
-    const transferBig = toFixed3(input.quantity)
-    const sourceBig = sourceRow ? toFixed3(sourceRow.quantity) : 0n
+    for (const variantId of distinctVariantIds) {
+      const variant = variantMap.get(variantId)!
+      const transferBig = aggregatedMap.get(variantId)!
+      const transferQtyStr = fromFixed3(transferBig)
 
-    if (!sourceRow || sourceBig < transferBig) {
-      throw new Error(
-        `Insufficient stock at ${sourceLocation.name}: current balance is ${fromFixed3(sourceBig)} ${variant.unit}, cannot transfer ${input.quantity}`,
+      const sourceRow = lockedRows.find(
+        (r) => r.locationId === input.sourceLocationId && r.variantId === variantId,
+      )
+      const destRow = lockedRows.find(
+        (r) => r.locationId === input.destinationLocationId && r.variantId === variantId,
+      )
+
+      const sourceBig = sourceRow ? toFixed3(sourceRow.quantity) : 0n
+
+      if (!sourceRow || sourceBig < transferBig) {
+        throw new Error(
+          `Insufficient stock at ${sourceLocation.name}: current balance is ${fromFixed3(sourceBig)} ${variant.unit}, cannot transfer ${transferQtyStr}`,
+        )
+      }
+
+      const destBig = destRow ? toFixed3(destRow.quantity) : 0n
+
+      const newSourceBig = sourceBig - transferBig
+      const newDestBig = destBig + transferBig
+
+      const newSourceStr = fromFixed3(newSourceBig)
+      const newDestStr = fromFixed3(newDestBig)
+
+      // Update source inventory
+      const [updatedSource] = await tx
+        .update(inventory)
+        .set({ quantity: newSourceStr })
+        .where(eq(inventory.id, sourceRow.id))
+        .returning()
+      updatedSources.push(updatedSource)
+
+      // Update or Insert destination inventory
+      let updatedDest
+      if (destRow) {
+        const [row] = await tx
+          .update(inventory)
+          .set({ quantity: newDestStr })
+          .where(eq(inventory.id, destRow.id))
+          .returning()
+        updatedDest = row
+      } else {
+        const [row] = await tx
+          .insert(inventory)
+          .values({
+            productId: variant.productId,
+            variantId,
+            locationId: input.destinationLocationId,
+            quantity: newDestStr,
+          })
+          .returning()
+        updatedDest = row
+      }
+      updatedDests.push(updatedDest)
+
+      // Record stock movement ledger entry
+      const [movement] = await tx
+        .insert(stockMovements)
+        .values({
+          productId: variant.productId,
+          variantId,
+          sourceLocationId: input.sourceLocationId,
+          destinationLocationId: input.destinationLocationId,
+          type: 'transfer',
+          quantity: transferQtyStr,
+          referenceType: 'transfer',
+          referenceId: transferBatchRef,
+          reason: input.notes || 'Inter-location transfer',
+          userId,
+        })
+        .returning()
+      movements.push(movement)
+
+      // Append activity log referencing both locations
+      await logActivity(
+        {
+          userId,
+          action: 'stock.transfer',
+          entityType: 'stock_movement',
+          entityId: movement.id,
+          description: `Transferred ${transferQtyStr} ${variant.unit} of "${variant.productName}" from ${sourceLocation.name} to ${destinationLocation.name}`,
+          metadata: {
+            variantId: variant.id,
+            sku: variant.sku,
+            productName: variant.productName,
+            quantity: transferQtyStr,
+            previousSourceBalance: fromFixed3(sourceBig),
+            newSourceBalance: newSourceStr,
+            previousDestBalance: fromFixed3(destBig),
+            newDestBalance: newDestStr,
+            movementId: movement.id,
+            transferBatchRef,
+            notes: input.notes,
+          },
+          sourceLocationId: sourceLocation.id,
+          destinationLocationId: destinationLocation.id,
+        },
+        tx,
       )
     }
 
-    const destBig = destRow ? toFixed3(destRow.quantity) : 0n
-
-    const newSourceBig = sourceBig - transferBig
-    const newDestBig = destBig + transferBig
-
-    const newSourceStr = fromFixed3(newSourceBig)
-    const newDestStr = fromFixed3(newDestBig)
-
-    // 4. Update source inventory
-    const [updatedSource] = await tx
-      .update(inventory)
-      .set({ quantity: newSourceStr })
-      .where(eq(inventory.id, sourceRow.id))
-      .returning()
-
-    // 5. Update or Insert destination inventory
-    let updatedDest
-    if (destRow) {
-      const [row] = await tx
-        .update(inventory)
-        .set({ quantity: newDestStr })
-        .where(eq(inventory.id, destRow.id))
-        .returning()
-      updatedDest = row
-    } else {
-      const [row] = await tx
-        .insert(inventory)
-        .values({
-          productId: variant.productId,
-          variantId: input.variantId,
-          locationId: input.destinationLocationId,
-          quantity: newDestStr,
-        })
-        .returning()
-      updatedDest = row
-    }
-
-    // 6. Record stock movement ledger entry
-    const [movement] = await tx
-      .insert(stockMovements)
-      .values({
-        productId: variant.productId,
-        variantId: input.variantId,
-        sourceLocationId: input.sourceLocationId,
-        destinationLocationId: input.destinationLocationId,
-        type: 'transfer',
-        quantity: input.quantity,
-        referenceType: 'transfer',
-        reason: input.notes || 'Inter-location transfer',
-        userId,
-      })
-      .returning()
-
-    // 7. Append activity log referencing both locations
-    await logActivity(
-      {
-        userId,
-        action: 'stock.transfer',
-        entityType: 'stock_movement',
-        entityId: movement.id,
-        description: `Transferred ${input.quantity} ${variant.unit} of "${variant.productName}" from ${sourceLocation.name} to ${destinationLocation.name}`,
-        metadata: {
-          variantId: variant.id,
-          sku: variant.sku,
-          productName: variant.productName,
-          quantity: input.quantity,
-          previousSourceBalance: fromFixed3(sourceBig),
-          newSourceBalance: newSourceStr,
-          previousDestBalance: fromFixed3(destBig),
-          newDestBalance: newDestStr,
-          movementId: movement.id,
-          notes: input.notes,
-        },
-        sourceLocationId: sourceLocation.id,
-        destinationLocationId: destinationLocation.id,
-      },
-      tx,
-    )
-
     return {
-      movement,
-      sourceInventory: updatedSource,
-      destinationInventory: updatedDest,
+      movement: movements[0],
+      movements,
+      sourceInventory: updatedSources[0],
+      sourceInventories: updatedSources,
+      destinationInventory: updatedDests[0],
+      destinationInventories: updatedDests,
+      batchReference: transferBatchRef,
     }
   })
 }

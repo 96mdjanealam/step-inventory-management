@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { Image as ImageIcon } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Image as ImageIcon,
+  Package,
+  Plus,
+} from 'lucide-react'
+import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
 import { VariantSelect } from '../../../components/VariantSelect.tsx'
@@ -37,10 +45,20 @@ type StockItem = {
   discountedPrice: string
 }
 
-const inputClass =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black'
+interface TransferItem {
+  id: string
+  productId: string
+  variantId: string
+  quantity: string
+}
 
-function NewTransferPage() {
+interface DraftState {
+  productId: string
+  variantId: string
+  quantity: string
+}
+
+export function NewTransferPage() {
   const { locations } = Route.useLoaderData()
   const navigate = useNavigate()
 
@@ -62,11 +80,21 @@ function NewTransferPage() {
 
   const [sourceStock, setSourceStock] = useState<StockItem[]>([])
   const [stockLoading, setStockLoading] = useState(false)
-  const [selectedProductId, setSelectedProductId] = useState<string>('')
-  const [selectedVariantId, setSelectedVariantId] = useState<string>('')
-  const [transferQuantity, setTransferQuantity] = useState<string>('')
-  const [notes, setNotes] = useState<string>('')
 
+  // Committed items in the transfer
+  const [items, setItems] = useState<TransferItem[]>([])
+
+  // State for Add / Edit Row
+  const [isAdding, setIsAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState<DraftState>({
+    productId: '',
+    variantId: '',
+    quantity: '1',
+  })
+  const [draftError, setDraftError] = useState<string | null>(null)
+
+  const [notes, setNotes] = useState<string>('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -81,19 +109,7 @@ function NewTransferPage() {
     try {
       const stock = await getLocationStock({ data: { locationId: locId } })
       setSourceStock(stock as StockItem[])
-
-      // Auto-select first product if any available
-      if (stock.length > 0) {
-        const firstProdId = stock[0].productId
-        setSelectedProductId(firstProdId)
-        const variantsForFirst = stock.filter(
-          (s) => s.productId === firstProdId,
-        )
-        setSelectedVariantId(variantsForFirst[0]?.variantId || '')
-      } else {
-        setSelectedProductId('')
-        setSelectedVariantId('')
-      }
+      // Never auto-select variant or product beforehand
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load stock')
     } finally {
@@ -107,40 +123,171 @@ function NewTransferPage() {
     }
   }, [sourceLocationId])
 
-  // Variants available for selected product
-  const availableVariants = useMemo(() => {
-    if (!selectedProductId) return []
-    return sourceStock.filter((s) => s.productId === selectedProductId)
-  }, [sourceStock, selectedProductId])
-
-  // Selected variant item
-  const selectedVariantItem = useMemo(() => {
-    return (
-      availableVariants.find((v) => v.variantId === selectedVariantId) || null
-    )
-  }, [availableVariants, selectedVariantId])
-
-  function handleProductChange(productId: string) {
-    setSelectedProductId(productId)
-    const vars = sourceStock.filter((s) => s.productId === productId)
-    setSelectedVariantId(vars[0]?.variantId || '')
-    setTransferQuantity('')
+  function handleSourceLocationChange(newSource: string) {
+    setSourceLocationId(newSource)
+    if (newSource === destinationLocationId) {
+      const fallback =
+        eligibleLocations.find((l) => l.id !== newSource)?.id || ''
+      setDestinationLocationId(fallback)
+    }
+    // Reset transfer items and draft on source change
+    setItems([])
+    setIsAdding(false)
+    setEditingId(null)
+    setDraft({ productId: '', variantId: '', quantity: '1' })
+    setDraftError(null)
   }
 
-  // Active cover / image of selected variant
-  const selectedImage =
-    selectedVariantItem?.variantImage ||
-    selectedVariantItem?.productImages?.[0] ||
-    null
+  // Look up specific variant details from loaded source stock
+  function getVariantInfo(variantId: string) {
+    if (!variantId) return null
+    const row = sourceStock.find((i) => i.variantId === variantId)
+    if (!row) return null
 
-  const availableQtyNum = selectedVariantItem
-    ? Number(selectedVariantItem.quantity)
-    : 0
-  const transferQtyNum = Number(transferQuantity)
-  const isOverStock =
-    transferQuantity.trim() !== '' &&
-    !isNaN(transferQtyNum) &&
-    transferQtyNum > availableQtyNum
+    return {
+      productId: row.productId,
+      productName: row.productName,
+      sku: row.sku,
+      attributes: (row.attributes as Record<string, string>) || null,
+      unit: row.unit,
+      measurementType: row.measurementType,
+      image: row.variantImage || row.productImages?.[0] || null,
+      availableStock: row.quantity,
+    }
+  }
+
+  // Start adding a new item
+  function handleOpenAdd() {
+    setEditingId(null)
+    setDraftError(null)
+    setDraft({
+      productId: '',
+      variantId: '',
+      quantity: '1',
+    })
+    setIsAdding(true)
+  }
+
+  // Start editing an existing item
+  function handleOpenEdit(item: TransferItem) {
+    setIsAdding(false)
+    setEditingId(item.id)
+    setDraftError(null)
+    setDraft({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+    })
+  }
+
+  function handleCancelDraft() {
+    setIsAdding(false)
+    setEditingId(null)
+    setDraftError(null)
+  }
+
+  function handleDraftProductChange(newProductId: string) {
+    // Automatically reset variant selection to blank when product changes
+    setDraft({
+      productId: newProductId,
+      variantId: '',
+      quantity: '1',
+    })
+    setDraftError(null)
+  }
+
+  function handleDraftVariantChange(newVariantId: string) {
+    setDraft((prev) => ({
+      ...prev,
+      variantId: newVariantId,
+      quantity: '1',
+    }))
+    setDraftError(null)
+  }
+
+  // Save current draft (either insert new item or update existing)
+  function handleSaveDraft() {
+    setDraftError(null)
+
+    if (!draft.productId) {
+      setDraftError('Please choose a product')
+      return
+    }
+
+    if (!draft.variantId) {
+      setDraftError('Please choose a variant')
+      return
+    }
+
+    const info = getVariantInfo(draft.variantId)
+    if (!info) {
+      setDraftError('Selected variant is not available in source stock')
+      return
+    }
+
+    const qtyNum = Number(draft.quantity)
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+      setDraftError('Please enter a valid positive quantity')
+      return
+    }
+
+    // Whole number validation for piece/count
+    const isCount = info.measurementType === 'count' || info.unit === 'piece'
+    if (isCount && !Number.isInteger(qtyNum)) {
+      setDraftError(`Quantity for ${info.unit} items must be a whole number`)
+      return
+    }
+
+    // Total quantity check for this variant across the transfer (excluding currently editing row)
+    const otherUsage = items
+      .filter((i) => i.id !== editingId && i.variantId === draft.variantId)
+      .reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)
+
+    const totalNeeded = otherUsage + qtyNum
+    const available = Number(info.availableStock)
+    if (totalNeeded > available) {
+      setDraftError(
+        `Quantity exceeds available stock (${info.availableStock} ${info.unit} in stock at source).`,
+      )
+      return
+    }
+
+    if (editingId) {
+      // Update existing item
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === editingId
+            ? {
+                ...i,
+                productId: draft.productId,
+                variantId: draft.variantId,
+                quantity: draft.quantity.trim(),
+              }
+            : i,
+        ),
+      )
+      setEditingId(null)
+    } else {
+      // Add new item to list
+      setItems((prev) => [
+        ...prev,
+        {
+          id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          productId: draft.productId,
+          variantId: draft.variantId,
+          quantity: draft.quantity.trim(),
+        },
+      ])
+      setIsAdding(false)
+    }
+  }
+
+  function handleRemoveItem(idToRemove: string) {
+    setItems((prev) => prev.filter((i) => i.id !== idToRemove))
+    if (editingId === idToRemove) {
+      setEditingId(null)
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -156,29 +303,8 @@ function NewTransferPage() {
       return
     }
 
-    if (!selectedVariantId || !selectedVariantItem) {
-      setError('Please select a product variant to transfer')
-      return
-    }
-
-    if (isNaN(transferQtyNum) || transferQtyNum <= 0) {
-      setError('Please enter a valid positive transfer quantity')
-      return
-    }
-
-    const isCount =
-      selectedVariantItem.measurementType === 'count' ||
-      selectedVariantItem.unit === 'piece'
-
-    if (isCount && !Number.isInteger(transferQtyNum)) {
-      setError(`Quantity for ${selectedVariantItem.unit} items must be a whole number`)
-      return
-    }
-
-    if (isOverStock) {
-      setError(
-        `Transfer quantity exceeds available stock (${selectedVariantItem?.quantity} ${selectedVariantItem?.unit})`,
-      )
+    if (items.length === 0) {
+      setError('Please add at least one item to transfer')
       return
     }
 
@@ -186,10 +312,12 @@ function NewTransferPage() {
     try {
       await createTransfer({
         data: {
-          variantId: selectedVariantId,
           sourceLocationId,
           destinationLocationId,
-          quantity: transferQuantity.trim(),
+          items: items.map((i) => ({
+            variantId: i.variantId,
+            quantity: i.quantity,
+          })),
           notes: notes.trim() || undefined,
         },
       })
@@ -206,275 +334,427 @@ function NewTransferPage() {
   const sourceLoc = eligibleLocations.find((l) => l.id === sourceLocationId)
   const destLoc = eligibleLocations.find((l) => l.id === destinationLocationId)
 
-  return (
-    <main className="mx-auto max-w-3xl p-6">
-      {/* Top Header */}
-      <div className="mb-6 flex items-center justify-between border-b pb-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-            New Stock Transfer
-          </h1>
-          <p className="text-xs text-gray-500">
-            Dispatch inventory between warehouses and retail stores with real-time stock verification.
-          </p>
+  // Render the Builder Row (2 sides, vertical within each side)
+  function renderBuilderRow(mode: 'add' | 'edit') {
+    const draftInfo = getVariantInfo(draft.variantId)
+    const isDraftCount =
+      draftInfo?.measurementType === 'count' || draftInfo?.unit === 'piece'
+
+    return (
+      <div className="bg-neutral-50/80 border border-neutral-300 rounded-xl p-4 space-y-4 shadow-xs">
+        <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-neutral-900"></span>
+            {mode === 'edit' ? 'Edit Transfer Item' : 'Configure New Transfer Item'}
+          </span>
+          {draftInfo && (
+            <span className="text-xs text-neutral-600 font-normal">
+              Available at Source:{' '}
+              <strong className="text-emerald-700">
+                {draftInfo.availableStock} {draftInfo.unit}
+              </strong>
+            </span>
+          )}
         </div>
-        <Link
-          to="/transfers"
-          className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-        >
-          ← Back to Transfers
-        </Link>
+
+        {/* 2 SIDES: Left = Product & Variant | Right = Quantity & Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start pt-1">
+          {/* LEFT SIDE: Product & Variant (Vertical) */}
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Product Name *
+              </label>
+              <ProductSelect
+                value={draft.productId}
+                onChange={(val) => handleDraftProductChange(val)}
+                placeholder="-- Choose Product --"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Variant *
+              </label>
+              <VariantSelect
+                locationId={sourceLocationId}
+                productId={draft.productId}
+                value={draft.variantId}
+                onChange={(newVariantId) =>
+                  handleDraftVariantChange(newVariantId)
+                }
+                placeholder={
+                  !draft.productId
+                    ? '-- Select Product First --'
+                    : '-- Choose Variant --'
+                }
+                disabled={!draft.productId}
+              />
+            </div>
+          </div>
+
+          {/* RIGHT SIDE: Quantity & Actions (Vertical) */}
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Transfer Quantity {draftInfo ? `(${draftInfo.unit})` : ''} *
+              </label>
+              <input
+                type="number"
+                step={isDraftCount ? '1' : '0.001'}
+                min={isDraftCount ? '1' : '0.001'}
+                max={draftInfo ? draftInfo.availableStock : undefined}
+                value={draft.quantity}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, quantity: e.target.value }))
+                }
+                disabled={!draft.variantId}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium focus:outline-none focus:border-neutral-900 bg-white text-neutral-900 disabled:opacity-50"
+              />
+            </div>
+
+            {/* Available stock card info */}
+            {draftInfo && (
+              <div className="flex items-center justify-between px-3 py-2 bg-neutral-100/80 rounded-lg border border-neutral-200">
+                <span className="text-xs text-neutral-600">Stock Balance:</span>
+                <span className="text-xs font-bold text-neutral-900">
+                  {draftInfo.availableStock} {draftInfo.unit}
+                </span>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCancelDraft}
+                className="px-3.5 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={
+                  !draft.variantId ||
+                  !draft.quantity ||
+                  Number(draft.quantity) <= 0
+                }
+                className="px-4 py-2 rounded-lg bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-800 disabled:opacity-40 transition shadow-xs"
+              >
+                {mode === 'edit' ? 'Update Item' : 'Add Item'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {draftError && (
+          <p className="text-xs font-medium text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+            {draftError}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/transfers"
+            className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition"
+            title="Back to Transfers"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+              New Stock Transfer
+            </h1>
+            <p className="text-sm text-neutral-500">
+              Dispatch inventory between warehouses and retail stores with real-time stock verification.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        {error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-            {error}
-          </div>
-        ) : null}
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
+          <div className="font-medium">{error}</div>
+        </div>
+      )}
 
-        {/* Section 1: Route Setup */}
-        <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900 uppercase tracking-wide">
-            1. Transfer Route
-          </h2>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-center">
-            {/* Source Facility */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Step 1: Transfer Route */}
+        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-2.5">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">
-                Source Location (Dispatching From) *
-              </label>
-              <LocationSelect
-                value={sourceLocationId}
-                onChange={(newSource) => {
-                  setSourceLocationId(newSource)
-                  if (newSource === destinationLocationId) {
-                    const fallback =
-                      eligibleLocations.find((l) => l.id !== newSource)?.id || ''
-                    setDestinationLocationId(fallback)
-                  }
-                }}
-                placeholder="-- Choose Source Location --"
-                initialLocation={sourceLoc}
-              />
+              <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                Step 1
+              </span>
+              <h2 className="text-base font-semibold text-neutral-900">
+                Transfer Route
+              </h2>
             </div>
-
-            {/* Destination Facility */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">
-                Destination Location (Receiving At) *
-              </label>
-              <LocationSelect
-                value={destinationLocationId}
-                onChange={(newDest) => setDestinationLocationId(newDest)}
-                placeholder="-- Choose Destination Location --"
-                initialLocation={destLoc}
-              />
-            </div>
-          </div>
-
-          {/* Visual Route Pill */}
-          <div className="mt-4 flex items-center justify-center gap-3 rounded-md bg-gray-50 py-2.5 px-4 text-xs">
-            <span className="font-semibold text-gray-800">
-              {sourceLoc?.name ?? '—'}
-            </span>
-            <span className="font-bold text-blue-600">───►</span>
-            <span className="font-semibold text-blue-700">
-              {destLoc?.name ?? '—'}
-            </span>
-          </div>
-        </section>
-
-        {/* Section 2: Product & Variant Selection */}
-        <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-              2. Select Product & Variant
-            </h2>
-            {stockLoading && (
-              <span className="text-xs text-gray-400 animate-pulse">
-                Loading available stock...
+            {sourceLoc && destLoc && (
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700">
+                <span>{sourceLoc.name}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
+                <span>{destLoc.name}</span>
               </span>
             )}
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Source Location (Dispatching From) <span className="text-rose-500">*</span>
+              </label>
+              <LocationSelect
+                value={sourceLocationId}
+                onChange={handleSourceLocationChange}
+                placeholder="-- Select Source Location --"
+                initialLocation={sourceLoc}
+              />
+              <div className="mt-1 text-xs text-neutral-500">
+                {stockLoading
+                  ? 'Loading source stock...'
+                  : `${sourceStock.length} variant(s) currently in stock`}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Destination Location (Receiving At) <span className="text-rose-500">*</span>
+              </label>
+              <LocationSelect
+                value={destinationLocationId}
+                onChange={(newDest) => setDestinationLocationId(newDest)}
+                placeholder="-- Select Destination Location --"
+                initialLocation={destLoc}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2: Transfer Items */}
+        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <div>
+              <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                Step 2
+              </span>
+              <h2 className="text-base font-semibold text-neutral-900">
+                Transfer Items ({items.length})
+              </h2>
+              <p className="text-xs text-neutral-500">
+                Select products and variants available at {sourceLoc?.name || 'source location'}.
+              </p>
+            </div>
+          </div>
+
           {sourceStock.length === 0 && !stockLoading ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-center text-xs text-amber-800">
-              There is currently <strong>no active stock available</strong> at{' '}
-              {sourceLoc?.name}. Please receive stock or select a different source location.
+            <div className="p-8 text-center rounded-lg border border-dashed border-amber-200 bg-amber-50/50">
+              <Package className="w-8 h-8 mx-auto text-amber-500 mb-2" />
+              <h3 className="text-sm font-semibold text-amber-900">
+                No Stock Available at {sourceLoc?.name || 'Selected Location'}
+              </h3>
+              <p className="text-xs text-amber-700 mt-1 max-w-md mx-auto">
+                There is currently no active in-stock inventory at this source facility. Please select another source location or receive stock first.
+              </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              {/* Product Selection */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
-                  Select Product *
-                </label>
-                <ProductSelect
-                  value={selectedProductId}
-                  onChange={(val) => handleProductChange(val)}
-                  placeholder="-- Choose Product --"
-                />
-              </div>
+            <div className="space-y-3">
+              {/* Summary table of committed transfer items */}
+              {items.length > 0 && (
+                <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b bg-neutral-50 text-xs font-semibold text-neutral-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-3">Product / Variant</th>
+                        <th className="px-4 py-3">Available at Source</th>
+                        <th className="px-4 py-3">Transfer Quantity</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                      {items.map((item) => {
+                        const isThisEditing = editingId === item.id
+                        if (isThisEditing) {
+                          return (
+                            <tr key={item.id}>
+                              <td colSpan={4} className="p-2 bg-neutral-50/60">
+                                {renderBuilderRow('edit')}
+                              </td>
+                            </tr>
+                          )
+                        }
 
-              {/* Variant Selection */}
-              {selectedProductId && (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
-                    Select Variant *
-                  </label>
-                  <VariantSelect
-                    locationId={sourceLocationId}
-                    productId={selectedProductId}
-                    value={selectedVariantId}
-                    onChange={(val) => {
-                      setSelectedVariantId(val)
-                      setTransferQuantity('')
-                    }}
-                    placeholder="-- Choose Variant --"
-                  />
+                        const info = getVariantInfo(item.variantId)
+                        const variantInfo = formatVariantInfo(info)
+
+                        return (
+                          <tr key={item.id} className="hover:bg-neutral-50/50">
+                            {/* Product & Variant with Thumbnail */}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg border border-neutral-200 bg-white flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                  {info?.image ? (
+                                    <img
+                                      src={info.image}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        ;(e.target as HTMLImageElement).src =
+                                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
+                                      }}
+                                    />
+                                  ) : (
+                                    <ImageIcon className="w-5 h-5 text-neutral-300" />
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-neutral-900">
+                                    {info?.productName || 'Unknown Product'}
+                                  </div>
+                                  <div className="text-xs font-medium text-neutral-700">
+                                    {variantInfo.title}
+                                  </div>
+                                  {variantInfo.subtitle && (
+                                    <div className="text-xs font-mono text-neutral-400">
+                                      {variantInfo.subtitle}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Available at Source */}
+                            <td className="px-4 py-3 font-medium text-neutral-600 whitespace-nowrap">
+                              {info?.availableStock || '0.000'} {info?.unit || 'units'}
+                            </td>
+
+                            {/* Transfer Quantity */}
+                            <td className="px-4 py-3 font-bold text-neutral-900 whitespace-nowrap">
+                              {item.quantity}{' '}
+                              <span className="text-xs font-normal text-neutral-500">
+                                {info?.unit || 'unit'}
+                              </span>
+                            </td>
+
+                            {/* Actions: Edit & Delete */}
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(item)}
+                                  className="px-2.5 py-1 text-xs font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-md transition"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(item.id)}
+                                  className="px-2 py-1 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-md transition"
+                                  title="Delete item"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
 
-              {/* Variant Card Preview */}
-              {selectedVariantItem && (
-                <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 p-3.5">
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-white flex items-center justify-center">
-                    {selectedImage ? (
-                      <img
-                        src={selectedImage}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <ImageIcon className="h-6 w-6 text-gray-300" />
-                    )}
-                  </div>
+              {/* Empty state when 0 items added yet and not adding */}
+              {items.length === 0 && !isAdding && (
+                <div className="py-8 text-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50">
+                  <p className="text-sm text-neutral-500">
+                    No items added to this transfer yet.
+                  </p>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Click the button below to add your first product.
+                  </p>
+                </div>
+              )}
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">
-                      {selectedVariantItem.productName}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      SKU: {selectedVariantItem.sku || 'Default'}
-                      {selectedVariantItem.attributes &&
-                        Object.keys(selectedVariantItem.attributes).length > 0 &&
-                        ` · ${Object.entries(selectedVariantItem.attributes)
-                          .map(([k, val]) => `${k}: ${val}`)
-                          .join(', ')}`}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Measurement: {selectedVariantItem.measurementType} (
-                      {selectedVariantItem.unit})
-                    </p>
-                  </div>
+              {/* Add Builder Row if isAdding is active */}
+              {isAdding && renderBuilderRow('add')}
 
-                  <div className="text-right">
-                    <span className="block text-xs text-gray-500">Available</span>
-                    <span className="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-800">
-                      {selectedVariantItem.quantity} {selectedVariantItem.unit}
-                    </span>
-                  </div>
+              {/* Add Item Button AT THE END OF THE LIST */}
+              {!isAdding && !editingId && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenAdd}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white hover:bg-neutral-50 px-4 py-2.5 text-xs font-semibold text-neutral-800 transition shadow-2xs"
+                  >
+                    <Plus className="w-4 h-4 text-neutral-500" />
+                    Add Item to Transfer
+                  </button>
                 </div>
               )}
             </div>
           )}
-        </section>
 
-        {/* Section 3: Quantity & Transfer Details */}
-        {selectedVariantItem && (
-          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-gray-900 uppercase tracking-wide">
-              3. Quantity & Transfer Details
-            </h2>
+          {/* Reference / Transfer Notes */}
+          <div className="pt-3 border-t border-neutral-100">
+            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+              Reference / Transfer Notes (Optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="e.g. Weekly store replenishment, Seasonal rebalance, Urgent restock..."
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+            />
+          </div>
+        </div>
 
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
-                  Transfer Quantity ({selectedVariantItem.unit}) *
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step={
-                      selectedVariantItem.measurementType === 'count' ||
-                      selectedVariantItem.unit === 'piece'
-                        ? '1'
-                        : '0.001'
-                    }
-                    min={
-                      selectedVariantItem.measurementType === 'count' ||
-                      selectedVariantItem.unit === 'piece'
-                        ? '1'
-                        : '0.001'
-                    }
-                    max={selectedVariantItem.quantity}
-                    value={transferQuantity}
-                    onChange={(e) => setTransferQuantity(e.target.value)}
-                    placeholder={
-                      selectedVariantItem.measurementType === 'count' ||
-                      selectedVariantItem.unit === 'piece'
-                        ? 'e.g. 10'
-                        : 'e.g. 10.500'
-                    }
-                    className={`${inputClass} pr-16 ${
-                      isOverStock ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
-                    }`}
-                    required
-                  />
-                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-gray-500">
-                    {selectedVariantItem.unit}
-                  </span>
-                </div>
-                {isOverStock ? (
-                  <p className="mt-1 text-xs font-medium text-red-600">
-                    Cannot transfer more than available balance ({selectedVariantItem.quantity}{' '}
-                    {selectedVariantItem.unit}).
-                  </p>
-                ) : null}
-              </div>
+        {/* Transfer Summary & Submit Bar */}
+        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-left w-full sm:w-auto">
+            <span className="text-xs font-medium text-neutral-500 block">
+              Total Transfer Items
+            </span>
+            <span className="text-2xl font-extrabold tracking-tight text-neutral-900">
+              {items.length} {items.length === 1 ? 'line item' : 'line items'}
+            </span>
+          </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
-                  Reference / Transfer Notes (optional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. Restock request, Seasonal relocation, Urgent transfer..."
-                  className={inputClass}
-                />
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-2">
-          <Link
-            to="/transfers"
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            disabled={
-              pending ||
-              !selectedVariantItem ||
-              !transferQuantity ||
-              isOverStock ||
-              sourceLocationId === destinationLocationId
-            }
-            className="rounded-md bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            {pending ? 'Dispatching Transfer...' : 'Confirm & Dispatch Transfer'}
-          </button>
+          <div className="flex gap-3 w-full sm:w-auto justify-end">
+            <Link
+              to="/transfers"
+              className="px-4 py-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 rounded-lg hover:bg-neutral-100 transition"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={
+                pending ||
+                items.length === 0 ||
+                !sourceLocationId ||
+                !destinationLocationId ||
+                sourceLocationId === destinationLocationId ||
+                isAdding ||
+                editingId !== null
+              }
+              className="px-6 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm flex items-center gap-2"
+            >
+              {pending ? 'Dispatching Transfer...' : 'Confirm & Dispatch Transfer'}
+            </button>
+          </div>
         </div>
       </form>
-    </main>
+    </div>
   )
 }
-

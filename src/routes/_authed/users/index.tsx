@@ -3,6 +3,7 @@ import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { Select } from '../../../components/Select.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import {
   createUserFn,
@@ -264,15 +265,15 @@ function UsersPage() {
         </form>
 
         <div className="flex items-center gap-4">
-          <select
+          <Select
             value={role ?? ''}
             onChange={(e) => handleRoleFilter(e.target.value)}
-            className="rounded border px-3 py-2 text-sm"
+            sizeVariant="sm"
           >
             <option value="">All Roles</option>
             <option value="admin">Admins only</option>
             <option value="employee">Employees only</option>
-          </select>
+          </Select>
 
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
             <input
@@ -319,7 +320,7 @@ function UsersPage() {
                       {u.username ?? '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <select
+                      <Select
                         value={u.role}
                         disabled={actionPendingId === u.id || isSelf}
                         onChange={(e) =>
@@ -328,11 +329,11 @@ function UsersPage() {
                             e.target.value as 'admin' | 'employee',
                           )
                         }
-                        className="rounded border bg-transparent px-2 py-1 text-xs font-medium disabled:opacity-50"
+                        sizeVariant="sm"
                       >
                         <option value="employee">Employee</option>
                         <option value="admin">Admin</option>
-                      </select>
+                      </Select>
                     </td>
                     <td className="px-4 py-3">
                       {u.isActive ? (
@@ -442,14 +443,13 @@ function UsersPage() {
 
               <label className="flex flex-col gap-1 text-sm font-medium">
                 Role
-                <select
+                <Select
                   name="role"
                   defaultValue="employee"
-                  className="rounded border px-3 py-2 text-sm"
                 >
                   <option value="employee">Employee</option>
                   <option value="admin">Administrator</option>
-                </select>
+                </Select>
               </label>
 
               <div className="mt-4 flex justify-end gap-2">

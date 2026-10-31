@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import { cancelSaleFn, getSaleFn } from '../../../server/functions/sales.ts'
 import { createReturnFn } from '../../../server/functions/returns.ts'
 
@@ -307,8 +308,7 @@ function SaleDetailPage() {
           <table className="w-full text-left text-sm text-neutral-600">
             <thead className="bg-neutral-50/50 text-neutral-900 font-medium border-b border-neutral-200">
               <tr>
-                <th className="py-3 px-4">Item & SKU</th>
-                <th className="py-3 px-4">Attributes</th>
+                <th className="py-3 px-4" colSpan={2}>Item & Variant</th>
                 <th className="py-3 px-4 text-right">Unit Price</th>
                 <th className="py-3 px-4 text-right">Purchased</th>
                 <th className="py-3 px-4 text-right">Returned</th>
@@ -320,18 +320,14 @@ function SaleDetailPage() {
                 const returnedNum = Number(item.returnedQuantity || '0')
                 return (
                   <tr key={item.id}>
-                    <td className="py-3.5 px-4 font-medium text-neutral-900">
-                      <div>{item.productName}</div>
-                      <div className="text-xs font-mono text-neutral-400">
-                        {item.sku || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-neutral-500">
-                      {item.attributes && Object.keys(item.attributes).length > 0
-                        ? Object.entries(item.attributes)
-                            .map(([k, v]) => `${k}: ${v}`)
-                            .join(', ')
-                        : '—'}
+                    <td className="py-3.5 px-4 font-medium text-neutral-900" colSpan={2}>
+                      <div className="font-semibold text-neutral-900">{item.productName}</div>
+                      <VariantDisplay
+                        variant={{
+                          attributes: item.attributes as Record<string, string>,
+                          sku: item.sku,
+                        }}
+                      />
                     </td>
                     <td className="py-3.5 px-4 text-right text-neutral-700">
                       ${Number(item.unitPrice).toFixed(2)}

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, AlertCircle, Package, Plus, Image as ImageIcon } from 'lucide-react'
+import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
 import { VariantSelect } from '../../../components/VariantSelect.tsx'
@@ -127,30 +128,17 @@ function NewSalePage() {
     return Array.from(map.values())
   }, [storeInventory])
 
-  // Get all variants available for a selected product
-  function getProductVariants(productId: string) {
-    if (!productId) return []
-    return storeInventory.filter((r) => r.productId === productId)
-  }
-
   // Look up specific variant details
   function getVariantInfo(variantId: string) {
     if (!variantId) return null
     const row = storeInventory.find((i) => i.variantId === variantId)
     if (!row) return null
 
-    const attrs =
-      row.attributes && typeof row.attributes === 'object'
-        ? Object.entries(row.attributes)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(', ')
-        : ''
-
     return {
       productId: row.productId,
       productName: row.productName,
       sku: row.sku,
-      attributesText: attrs,
+      attributes: (row.attributes as Record<string, string>) || null,
       unit: row.unit,
       measurementType: row.measurementType,
       image: row.variantImage || row.productImages?.[0] || null,
@@ -163,7 +151,6 @@ function NewSalePage() {
   function handleOpenAdd() {
     setEditingId(null)
     setDraftError(null)
-    // If available products exist, default to first or blank
     setDraft({
       productId: '',
       variantId: '',
@@ -191,13 +178,10 @@ function NewSalePage() {
   }
 
   function handleDraftProductChange(newProductId: string) {
-    const variants = getProductVariants(newProductId)
-    const defaultVariantId =
-      variants.length === 1 ? variants[0].variantId : (variants[0]?.variantId || '')
-
+    // Automatically reset variant selection to blank when product changes
     setDraft({
       productId: newProductId,
-      variantId: defaultVariantId,
+      variantId: '',
       quantity: '1',
     })
     setDraftError(null)
@@ -639,6 +623,7 @@ function NewSalePage() {
                         }
 
                         const info = getVariantInfo(item.variantId)
+                        const variantInfo = formatVariantInfo(info)
                         const numQty = Number(item.quantity)
                         const subtotal =
                           info && !isNaN(numQty)
@@ -669,10 +654,14 @@ function NewSalePage() {
                                   <div className="font-semibold text-neutral-900">
                                     {info?.productName || 'Unknown Product'}
                                   </div>
-                                  <div className="text-xs text-neutral-500">
-                                    {info?.sku ? `SKU: ${info.sku}` : 'Default Variant'}
-                                    {info?.attributesText ? ` · ${info.attributesText}` : ''}
+                                  <div className="text-xs font-medium text-neutral-700">
+                                    {variantInfo.title}
                                   </div>
+                                  {variantInfo.subtitle && (
+                                    <div className="text-xs font-mono text-neutral-400">
+                                      {variantInfo.subtitle}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>

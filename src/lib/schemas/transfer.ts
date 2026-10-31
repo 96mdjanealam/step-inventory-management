@@ -2,23 +2,44 @@ import { z } from 'zod'
 
 const quantityPattern = /^\d+(\.\d{1,3})?$/
 
+export const transferItemInputSchema = z.object({
+  variantId: z.string().uuid('Valid variant ID is required'),
+  quantity: z
+    .string()
+    .trim()
+    .regex(quantityPattern, 'Enter a valid positive quantity (up to 3 decimal places)')
+    .refine((q) => Number(q) > 0, 'Quantity must be greater than zero'),
+})
+
+export type TransferItemInput = z.infer<typeof transferItemInputSchema>
+
 export const createTransferSchema = z
   .object({
-    variantId: z.uuid('Valid variant ID is required'),
-    sourceLocationId: z.uuid('Source location is required'),
-    destinationLocationId: z.uuid('Destination location is required'),
+    sourceLocationId: z.string().uuid('Source location is required'),
+    destinationLocationId: z.string().uuid('Destination location is required'),
+    notes: z.string().trim().min(1).optional(),
+    items: z.array(transferItemInputSchema).min(1).optional(),
+    // Backward compatibility for single-item calls
+    variantId: z.string().uuid().optional(),
     quantity: z
       .string()
       .trim()
       .regex(quantityPattern, 'Enter a valid positive quantity (up to 3 decimal places)')
-      .refine((q) => Number(q) > 0, 'Quantity must be greater than zero'),
-    notes: z.string().trim().min(1).optional(),
+      .refine((q) => Number(q) > 0, 'Quantity must be greater than zero')
+      .optional(),
   })
   .refine(
     (data) => data.sourceLocationId !== data.destinationLocationId,
     {
       message: 'Source and destination locations must be different',
       path: ['destinationLocationId'],
+    },
+  )
+  .refine(
+    (data) => (data.items && data.items.length > 0) || (data.variantId && data.quantity),
+    {
+      message: 'At least one item must be provided for transfer',
+      path: ['items'],
     },
   )
 

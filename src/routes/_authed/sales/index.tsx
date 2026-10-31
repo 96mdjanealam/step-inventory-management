@@ -1,6 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { LocationSelect } from '../../../components/LocationSelect.tsx'
+import { Select } from '../../../components/Select.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listSalesFn } from '../../../server/functions/sales.ts'
@@ -41,11 +43,9 @@ export const Route = createFileRoute('/_authed/sales/')({
 })
 
 function SalesPage() {
-  const { sales, total, page, pageSize, locations } = Route.useLoaderData()
+  const { sales, total, page, pageSize } = Route.useLoaderData()
   const { search, locationId, status } = Route.useSearch()
   const navigate = Route.useNavigate()
-
-  const storeLocations = locations.filter((l) => l.type === 'store')
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -56,17 +56,6 @@ function SalesPage() {
         ...prev,
         page: 1,
         search: query || undefined,
-      }),
-    })
-  }
-
-  function handleLocationFilter(e: React.ChangeEvent<HTMLSelectElement>) {
-    const val = e.target.value
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: 1,
-        locationId: val || undefined,
       }),
     })
   }
@@ -134,28 +123,32 @@ function SalesPage() {
         </form>
 
         <div className="flex flex-wrap gap-2 items-center">
-          <select
+          <LocationSelect
             value={locationId || ''}
-            onChange={handleLocationFilter}
-            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none bg-white text-neutral-700"
-          >
-            <option value="">All Store Locations</option>
-            {storeLocations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name} ({loc.storeType === 'ownstore' ? 'Own Store' : 'Franchise'})
-              </option>
-            ))}
-          </select>
+            type="store"
+            onChange={(val) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  locationId: val || undefined,
+                  page: 1,
+                }),
+              })
+            }
+            placeholder="All Store Locations"
+            clearable
+            className="w-56"
+          />
 
-          <select
+          <Select
             value={status || ''}
             onChange={handleStatusFilter}
-            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none bg-white text-neutral-700"
+            sizeVariant="sm"
           >
             <option value="">All Statuses</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
-          </select>
+          </Select>
         </div>
       </div>
 

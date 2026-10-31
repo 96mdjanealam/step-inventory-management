@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon } from 'lucide-react'
+import { formatProductInfo } from '../lib/display-formatters.tsx'
 import { listProductsFn } from '../server/functions/products.ts'
 import { PaginatedSelect } from './PaginatedSelect.tsx'
 
@@ -95,32 +96,47 @@ export function ProductSelect({
       className={className}
       clearable={clearable}
       initialSelectedItem={initialProduct}
-      renderSelected={(p) =>
-        p ? (
+      renderSelected={(p) => {
+        if (!p) return null
+        const { line1, line2 } = formatProductInfo({
+          name: p.name,
+          additionalInfo: [p.category, p.unit],
+        })
+        return (
           <div className="flex items-center gap-2 min-w-0">
             {getThumbnail(p)}
             <div className="truncate">
-              <span className="font-semibold text-neutral-900">{p.name}</span>{' '}
-              <span className="text-xs text-neutral-500 font-normal">
-                ({p.category}) · {p.unit}
-              </span>
+              <span className="font-semibold text-neutral-900">{line1}</span>
+              {line2 && (
+                <span className="text-xs text-neutral-500 font-normal ml-2">
+                  {line2}
+                </span>
+              )}
             </div>
           </div>
-        ) : null
-      }
-      renderItem={(p) => (
-        <div className="flex items-center gap-3">
-          {getThumbnail(p)}
-          <div className="min-w-0 flex-1">
-            <div className="font-semibold text-neutral-900 truncate">
-              {p.name}
-            </div>
-            <div className="text-xs text-neutral-500 truncate">
-              {p.category} · Unit: {p.unit}
+        )
+      }}
+      renderItem={(p) => {
+        const { line1, line2 } = formatProductInfo({
+          name: p.name,
+          additionalInfo: [p.category, p.unit],
+        })
+        return (
+          <div className="flex items-center gap-3">
+            {getThumbnail(p)}
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-neutral-900 truncate">
+                {line1}
+              </div>
+              {line2 && (
+                <div className="text-xs text-neutral-500 truncate">
+                  {line2}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )
+      }}
     />
   )
 }

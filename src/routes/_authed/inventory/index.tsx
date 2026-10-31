@@ -3,9 +3,14 @@ import { Link, createFileRoute, redirect, useRouter } from '@tanstack/react-rout
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
-import { TablePagination } from '../../../components/TablePagination.tsx'
+import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
+import { Select } from '../../../components/Select.tsx'
+import { TablePagination } from '../../../components/TablePagination.tsx'
 import { VariantSelect } from '../../../components/VariantSelect.tsx'
+import {
+  VariantDisplay,
+} from '../../../lib/display-formatters.tsx'
 import {
   addStockFn,
   adjustStockFn,
@@ -154,6 +159,7 @@ function InventoryPage() {
   const [transferringItem, setTransferringItem] = useState<
     (typeof loaderData.inventoryData.items)[number] | null
   >(null)
+  const [transferDestinationId, setTransferDestinationId] = useState<string>('')
   const [transferPending, setTransferPending] = useState(false)
   const [transferError, setTransferError] = useState<string | null>(null)
 
@@ -162,15 +168,6 @@ function InventoryPage() {
     () =>
       loaderData.activeProducts.find((p) => p.id === selectedProductId) ?? null,
     [loaderData.activeProducts, selectedProductId],
-  )
-
-  // Eligible transfer destinations (active, not current location, not damaged)
-  const transferDestinations = useMemo(
-    () =>
-      loaderData.allLocations.filter(
-        (l) => l.isActive && l.id !== locationId && l.type !== 'damaged',
-      ),
-    [loaderData.allLocations, locationId],
   )
 
   // ===================== HANDLERS: OVERVIEW =====================
@@ -312,30 +309,16 @@ function InventoryPage() {
 
   function openInflowModal() {
     setInflowError(null)
-    // Select first active product by default if available
-    if (loaderData.activeProducts.length > 0) {
-      const firstProd = loaderData.activeProducts[0]
-      setSelectedProductId(firstProd.id)
-      if (firstProd.variants.length > 0) {
-        setSelectedVariantId(firstProd.variants[0].id)
-      } else {
-        setSelectedVariantId('')
-      }
-    } else {
-      setSelectedProductId('')
-      setSelectedVariantId('')
-    }
+    // Start with blank product and blank variant
+    setSelectedProductId('')
+    setSelectedVariantId('')
     setShowInflowModal(true)
   }
 
   function handleProductChange(newProdId: string) {
     setSelectedProductId(newProdId)
-    const prod = loaderData.activeProducts.find((p) => p.id === newProdId)
-    if (prod && prod.variants.length > 0) {
-      setSelectedVariantId(prod.variants[0].id)
-    } else {
-      setSelectedVariantId('')
-    }
+    // Automatically reset variant selection to blank when product changes
+    setSelectedVariantId('')
   }
 
   async function handleInflowSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -462,8 +445,8 @@ function InventoryPage() {
     setTransferError(null)
 
     const form = new FormData(event.currentTarget)
-    const destLocationId = String(
-      form.get('destinationLocationId') ?? '',
+    const destLocationId = (
+      transferDestinationId || String(form.get('destinationLocationId') ?? '')
     ).trim()
     const quantity = String(form.get('quantity') ?? '').trim()
     const notes = String(form.get('notes') ?? '').trim() || undefined
@@ -688,19 +671,13 @@ function InventoryPage() {
               </thead>
               <tbody className="divide-y">
                 {items.map((item) => {
-                  const attrs = Object.entries(
-                    (item.variant.attributes as Record<string, string>) || {},
-                  )
-                    .map(([k, v]) => `${k}: ${v}`)
-                    .join(', ')
-
                   return (
                     <tr key={item.id} className="hover:bg-gray-50/60">
                       <td className="px-4 py-3">
                         <Link
                           to="/products/$productId"
                           params={{ productId: item.product.id }}
-                          className="font-semibold text-gray-900 hover:underline"
+                          className="font-semibold text-gray-900 hover:underline block"
                         >
                           {item.product.name}
                         </Link>
@@ -710,12 +687,12 @@ function InventoryPage() {
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="font-mono text-xs font-medium text-gray-800">
-                          {item.variant.sku}
-                        </div>
-                        {attrs ? (
-                          <div className="text-xs text-gray-500">{attrs}</div>
-                        ) : null}
+                        <VariantDisplay
+                          variant={{
+                            attributes: item.variant.attributes as Record<string, string>,
+                            sku: item.variant.sku,
+                          }}
+                        />
                       </td>
 
                       <td className="px-4 py-3">
@@ -762,6 +739,7 @@ function InventoryPage() {
                               type="button"
                               onClick={() => {
                                 setTransferError(null)
+                                setTransferDestinationId('')
                                 setTransferringItem(item)
                               }}
                               className="text-xs font-medium text-purple-600 hover:underline"
@@ -945,14 +923,13 @@ function InventoryPage() {
               >
                 <label className="flex flex-col gap-1 text-sm font-medium">
                   Adjustment Type
-                  <select
+                  <Select
                     name="adjustmentType"
                     defaultValue="increase"
-                    className="rounded border px-3 py-2 text-sm"
                   >
                     <option value="increase">Increase Stock (+)</option>
                     <option value="decrease">Decrease Stock (-)</option>
-                  </select>
+                  </Select>
                 </label>
 
                 <label className="flex flex-col gap-1 text-sm font-medium">
@@ -1044,25 +1021,16 @@ function InventoryPage() {
                 onSubmit={handleTransferSubmit}
                 className="flex flex-col gap-3"
               >
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Destination Location *
-                  <select
-                    name="destinationLocationId"
-                    required
-                    className="rounded border px-3 py-2 text-sm"
-                  >
-                    <option value="">Select destination...</option>
-                    {transferDestinations.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} (
-                        {d.type === 'warehouse'
-                          ? 'Warehouse'
-                          : d.storeType ?? d.type}
-                        )
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-neutral-800">
+                    Destination Location *
+                  </label>
+                  <LocationSelect
+                    value={transferDestinationId}
+                    onChange={(val) => setTransferDestinationId(val)}
+                    placeholder="-- Select destination --"
+                  />
+                </div>
 
                 <label className="flex flex-col gap-1 text-sm font-medium">
                   Transfer Quantity ({transferringItem.product.unit}) *
@@ -1303,15 +1271,15 @@ function InventoryPage() {
             </form>
 
             {/* Filter Store Type */}
-            <select
+            <Select
               value={storeType ?? ''}
               onChange={(e) => handleFilterStoreType(e.target.value)}
-              className="rounded border px-2.5 py-1.5 text-xs"
+              sizeVariant="sm"
             >
               <option value="">All Store Types</option>
               <option value="ownstore">Own Stores</option>
               <option value="franchise">Franchise Stores</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -1489,14 +1457,13 @@ function InventoryPage() {
 
               <label className="flex flex-col gap-1 text-sm font-medium">
                 Store Type *
-                <select
+                <Select
                   name="storeType"
                   defaultValue="ownstore"
-                  className="rounded border px-3 py-2 text-sm"
                 >
                   <option value="ownstore">Own Store</option>
                   <option value="franchise">Franchise</option>
-                </select>
+                </Select>
               </label>
 
               <label className="flex flex-col gap-1 text-sm font-medium">

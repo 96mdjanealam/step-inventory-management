@@ -1,6 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
+import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listReturnsFn } from '../../../server/functions/returns.ts'
 
@@ -37,11 +39,9 @@ export const Route = createFileRoute('/_authed/returns/')({
 })
 
 function ReturnsPage() {
-  const { returns, total, page, pageSize, locations } = Route.useLoaderData()
+  const { returns, total, page, pageSize } = Route.useLoaderData()
   const { search, locationId } = Route.useSearch()
   const navigate = Route.useNavigate()
-
-  const storeLocations = locations.filter((l) => l.type === 'store')
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -52,17 +52,6 @@ function ReturnsPage() {
         ...prev,
         page: 1,
         search: query || undefined,
-      }),
-    })
-  }
-
-  function handleLocationFilter(e: React.ChangeEvent<HTMLSelectElement>) {
-    const val = e.target.value
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: 1,
-        locationId: val || undefined,
       }),
     })
   }
@@ -112,18 +101,22 @@ function ReturnsPage() {
         </form>
 
         <div className="flex flex-wrap gap-2 items-center">
-          <select
+          <LocationSelect
             value={locationId || ''}
-            onChange={handleLocationFilter}
-            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none bg-white text-neutral-700"
-          >
-            <option value="">All Store Locations</option>
-            {storeLocations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name} ({loc.storeType === 'ownstore' ? 'Own Store' : 'Franchise'})
-              </option>
-            ))}
-          </select>
+            type="store"
+            onChange={(val) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  locationId: val || undefined,
+                  page: 1,
+                }),
+              })
+            }
+            placeholder="All Store Locations"
+            clearable
+            className="w-56"
+          />
         </div>
       </div>
 
@@ -168,40 +161,32 @@ function ReturnsPage() {
                     </td>
                     <td className="py-3.5 px-4">
                       {ret.items && ret.items.length > 0 ? (
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-2">
                           {ret.items.map((item, idx) => {
-                            const attrEntries = Object.entries(
-                              (item.attributes as Record<string, string>) || {},
-                            )
-                            const attrString =
-                              attrEntries.length > 0
-                                ? attrEntries
-                                    .map(([k, v]) => `${k}: ${v}`)
-                                    .join(', ')
-                                : item.sku
-                                  ? `SKU: ${item.sku}`
-                                  : 'Default'
+                            const variantInfo = formatVariantInfo({
+                              attributes: item.attributes as Record<string, string>,
+                              sku: item.sku,
+                            })
 
                             return (
                               <div
                                 key={idx}
-                                className="text-xs font-medium text-neutral-800"
+                                className="text-xs"
                               >
-                                <span className="font-semibold text-neutral-900">
-                                  {item.productName}
-                                </span>
-                                <span className="text-neutral-400 mx-1.5">
-                                  /
-                                </span>
-                                <span className="text-neutral-600">
-                                  {attrString}
-                                </span>
-                                <span className="text-neutral-400 mx-1.5">
-                                  /
-                                </span>
-                                <span className="font-bold text-neutral-900">
-                                  {item.quantity} {item.unit}
-                                </span>
+                                <div className="font-semibold text-neutral-900">
+                                  {item.productName}{' '}
+                                  <span className="font-normal text-neutral-500">
+                                    ({item.quantity} {item.unit})
+                                  </span>
+                                </div>
+                                <div className="text-neutral-700 font-medium">
+                                  {variantInfo.title}
+                                </div>
+                                {variantInfo.subtitle && (
+                                  <div className="text-neutral-400 font-mono text-[11px]">
+                                    {variantInfo.subtitle}
+                                  </div>
+                                )}
                               </div>
                             )
                           })}

@@ -1,6 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { LocationSelect } from '../../../components/LocationSelect.tsx'
+import { Select } from '../../../components/Select.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
+import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listStockMovementsFn } from '../../../server/functions/inventory.ts'
 import { listActivityLogsFn } from '../../../server/functions/activity-logs.ts'
@@ -65,7 +68,7 @@ export const Route = createFileRoute('/_authed/audit/')({
 })
 
 function AuditPage() {
-  const { tab, activityData, ledgerData, locations } = Route.useLoaderData()
+  const { tab, activityData, ledgerData } = Route.useLoaderData()
   const { search, locationId, movementType } = Route.useSearch()
   const navigate = Route.useNavigate()
 
@@ -93,17 +96,6 @@ function AuditPage() {
         ...prev,
         page: 1,
         movementType: val || undefined,
-      }),
-    })
-  }
-
-  function handleLocationFilter(e: React.ChangeEvent<HTMLSelectElement>) {
-    const val = e.target.value
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: 1,
-        locationId: val || undefined,
       }),
     })
   }
@@ -198,10 +190,11 @@ function AuditPage() {
 
         <div className="flex flex-wrap gap-2 items-center">
           {tab === 'ledger' && (
-            <select
+            <Select
               value={movementType || ''}
               onChange={handleTypeFilter}
-              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none bg-white text-neutral-700 capitalize"
+              sizeVariant="sm"
+              className="capitalize"
             >
               <option value="">All Movement Types</option>
               <option value="inflow">Inflow</option>
@@ -212,21 +205,24 @@ function AuditPage() {
               <option value="damage">Damage</option>
               <option value="repair">Repair</option>
               <option value="disposal">Disposal</option>
-            </select>
+            </Select>
           )}
 
-          <select
+          <LocationSelect
             value={locationId || ''}
-            onChange={handleLocationFilter}
-            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none bg-white text-neutral-700"
-          >
-            <option value="">All Locations</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name} ({loc.type})
-              </option>
-            ))}
-          </select>
+            onChange={(val) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  locationId: val || undefined,
+                  page: 1,
+                }),
+              })
+            }
+            placeholder="All Locations"
+            clearable
+            className="w-56"
+          />
         </div>
       </div>
 
@@ -285,10 +281,13 @@ function AuditPage() {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 font-medium text-neutral-900">
-                          <div>{m.product.name}</div>
-                          <div className="text-xs font-mono text-neutral-400">
-                            {m.variant.sku || 'No SKU'}
-                          </div>
+                          <div className="font-semibold text-neutral-900">{m.product.name}</div>
+                          <VariantDisplay
+                            variant={{
+                              attributes: m.variant.attributes as Record<string, string>,
+                              sku: m.variant.sku,
+                            }}
+                          />
                         </td>
                         <td className="py-3.5 px-4 text-right font-semibold text-neutral-900 whitespace-nowrap">
                           {m.quantity} {m.product.unit}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
+import { Select } from '../../../components/Select.tsx'
 import { createProductSchema } from '../../../lib/schemas/product.ts'
 import { createProductFn } from '../../../server/functions/products.ts'
 import { ImageUploader } from '../../../components/ImageUploader.tsx'
@@ -296,48 +297,48 @@ function NewProductPage() {
               </Field>
 
               <Field label="Target Consumer" error={fieldErrors.targetConsumer}>
-                <select
+                <Select
                   value={targetConsumer}
                   onChange={(e) => setTargetConsumer(e.target.value as any)}
-                  className={inputClass}
+                  className="w-full"
                 >
                   <option value="unisex">Unisex</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="kids">Kids</option>
-                </select>
+                </Select>
               </Field>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Measured By" error={fieldErrors.measurementType}>
-                <select
+                <Select
                   value={measurementType}
                   onChange={(e) => {
                     const newType = e.target.value as MeasurementType
                     setMeasurementType(newType)
                     setUnit(unitsByType[newType][0])
                   }}
-                  className={inputClass}
+                  className="w-full"
                 >
                   <option value="count">Count (Units / Pieces)</option>
                   <option value="weight">Weight (kg / g)</option>
                   <option value="volume">Volume (litre / ml)</option>
-                </select>
+                </Select>
               </Field>
 
               <Field label="Inventory Unit" error={fieldErrors.unit}>
-                <select
+                <Select
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
-                  className={inputClass}
+                  className="w-full"
                 >
                   {unitsByType[measurementType].map((u) => (
                     <option key={u} value={u}>
                       {u}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
             </div>
 

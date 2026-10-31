@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Plus, Image as ImageIcon } from 'lucide-react'
 import { z } from 'zod'
+import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
+import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listTransfersFn } from '../../../server/functions/transfers.ts'
 
@@ -39,15 +40,9 @@ export const Route = createFileRoute('/_authed/transfers/')({
 })
 
 function TransfersPage() {
-  const { items, total, page, pageSize, locations } = Route.useLoaderData()
+  const { items, total, page, pageSize } = Route.useLoaderData()
   const { search, locationId } = Route.useSearch()
   const navigate = Route.useNavigate()
-
-  // Eligible locations for transfers (exclude Damaged Stock)
-  const eligibleLocations = useMemo(
-    () => locations.filter((l) => l.type !== 'damaged' && l.isActive),
-    [locations],
-  )
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -111,18 +106,13 @@ function TransfersPage() {
         </form>
 
         <div className="flex items-center gap-4">
-          <select
+          <LocationSelect
             value={locationId ?? ''}
-            onChange={(e) => handleLocationFilter(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-          >
-            <option value="">All Facilities & Stores</option>
-            {eligibleLocations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name} ({l.type === 'warehouse' ? 'Warehouse' : l.storeType})
-              </option>
-            ))}
-          </select>
+            onChange={(val) => handleLocationFilter(val)}
+            placeholder="All Facilities & Stores"
+            clearable
+            className="w-56"
+          />
         </div>
       </div>
 
@@ -149,16 +139,6 @@ function TransfersPage() {
             <tbody className="divide-y divide-gray-100">
               {items.map((t) => {
                 const img = t.variant.image || t.product.images?.[0]
-                const attrValues =
-                  t.variant.attributes && typeof t.variant.attributes === 'object'
-                    ? Object.values(t.variant.attributes)
-                        .map(String)
-                        .filter((v) => v.trim().length > 0)
-                    : []
-                const sku = t.variant.sku?.trim()
-                const variantDetails = [sku, ...attrValues]
-                  .filter(Boolean)
-                  .join(' / ')
 
                 return (
                   <tr key={t.id} className="hover:bg-gray-50/50">
@@ -194,15 +174,16 @@ function TransfersPage() {
                           <Link
                             to="/products/$productId"
                             params={{ productId: t.product.id }}
-                            className="font-semibold text-gray-900 hover:underline"
+                            className="font-semibold text-gray-900 hover:underline block"
                           >
                             {t.product.name}
                           </Link>
-                          {variantDetails ? (
-                            <div className="text-xs text-gray-500">
-                              {variantDetails}
-                            </div>
-                          ) : null}
+                          <VariantDisplay
+                            variant={{
+                              attributes: t.variant.attributes as Record<string, string>,
+                              sku: t.variant.sku,
+                            }}
+                          />
                         </div>
                       </div>
                     </td>
