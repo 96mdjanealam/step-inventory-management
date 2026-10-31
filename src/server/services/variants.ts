@@ -1,9 +1,10 @@
-import { and, desc, eq, ne } from 'drizzle-orm'
+import { and, desc, eq, ilike, ne } from 'drizzle-orm'
 import { db } from '../db/index.ts'
 import { products, productVariants } from '../db/schema/index.ts'
 import { logActivity } from './activity-logs.ts'
 import type {
   CreateVariantInput,
+  ListProductVariantsPaginatedInput,
   ToggleVariantActiveInput,
   UpdateVariantInput,
 } from '../../lib/schemas/product.ts'
@@ -346,4 +347,41 @@ export async function toggleVariantActive(
       }
     }
   })
+}
+
+export async function listProductVariantsPaginated(
+  input: ListProductVariantsPaginatedInput,
+) {
+  const searchPattern = input.search?.replace(/[%_\\]/g, '\\$&')
+
+  const conditions = [
+    eq(productVariants.productId, input.productId),
+    eq(productVariants.isActive, true),
+    searchPattern ? ilike(productVariants.sku, `%${searchPattern}%`) : undefined,
+  ]
+
+  const where = and(...conditions.filter(Boolean))
+
+  const [items, total] = await Promise.all([
+    db
+      .select({
+        id: productVariants.id,
+        productId: productVariants.productId,
+        sku: productVariants.sku,
+        attributes: productVariants.attributes,
+        image: productVariants.image,
+        discountedPrice: productVariants.discountedPrice,
+        regularPrice: productVariants.regularPrice,
+        isDefault: productVariants.isDefault,
+        isActive: productVariants.isActive,
+      })
+      .from(productVariants)
+      .where(where)
+      .orderBy(desc(productVariants.isDefault), productVariants.sku)
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+    db.$count(productVariants, where),
+  ])
+
+  return { items, total, page: input.page, pageSize: input.pageSize }
 }

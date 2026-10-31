@@ -17,6 +17,7 @@ import type {
   CancelSaleInput,
   CreateSaleInput,
   ListSalesInput,
+  ListStoreInventoryPaginatedInput,
 } from '../../lib/schemas/sale.ts'
 
 export function toFixed3(val: string | number): bigint {
@@ -568,3 +569,94 @@ export async function getSaleById(saleId: string) {
     returns: saleReturns,
   }
 }
+
+export async function getStoreInventoryForSale(locationId: string) {
+  return await db
+    .select({
+      id: inventory.id,
+      productId: inventory.productId,
+      productName: products.name,
+      category: products.category,
+      measurementType: products.measurementType,
+      unit: products.unit,
+      productImages: products.images,
+      variantId: inventory.variantId,
+      sku: productVariants.sku,
+      attributes: productVariants.attributes,
+      variantImage: productVariants.image,
+      quantity: inventory.quantity,
+      price: productVariants.discountedPrice,
+      regularPrice: productVariants.regularPrice,
+    })
+    .from(inventory)
+    .innerJoin(products, eq(inventory.productId, products.id))
+    .innerJoin(productVariants, eq(inventory.variantId, productVariants.id))
+    .where(
+      and(
+        eq(inventory.locationId, locationId),
+        sql`${inventory.quantity} > 0`,
+        eq(products.isActive, true),
+        eq(productVariants.isActive, true),
+      ),
+    )
+    .orderBy(products.name, productVariants.sku)
+}
+
+export async function listStoreInventoryPaginated(
+  input: ListStoreInventoryPaginatedInput,
+) {
+  const searchPattern = input.search?.replace(/[%_\\]/g, '\\$&')
+
+  const conditions = [
+    eq(inventory.locationId, input.locationId),
+    sql`${inventory.quantity} > 0`,
+    eq(products.isActive, true),
+    eq(productVariants.isActive, true),
+    input.productId ? eq(inventory.productId, input.productId) : undefined,
+    searchPattern
+      ? or(
+          ilike(products.name, `%${searchPattern}%`),
+          ilike(productVariants.sku, `%${searchPattern}%`),
+        )
+      : undefined,
+  ]
+
+  const where = and(...conditions.filter(Boolean))
+
+  const [items, total] = await Promise.all([
+    db
+      .select({
+        id: inventory.id,
+        productId: inventory.productId,
+        productName: products.name,
+        category: products.category,
+        measurementType: products.measurementType,
+        unit: products.unit,
+        productImages: products.images,
+        variantId: inventory.variantId,
+        sku: productVariants.sku,
+        attributes: productVariants.attributes,
+        variantImage: productVariants.image,
+        quantity: inventory.quantity,
+        price: productVariants.discountedPrice,
+        regularPrice: productVariants.regularPrice,
+      })
+      .from(inventory)
+      .innerJoin(products, eq(inventory.productId, products.id))
+      .innerJoin(productVariants, eq(inventory.variantId, productVariants.id))
+      .where(where)
+      .orderBy(products.name, productVariants.sku)
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(inventory)
+      .innerJoin(products, eq(inventory.productId, products.id))
+      .innerJoin(productVariants, eq(inventory.variantId, productVariants.id))
+      .where(where)
+      .then((rows) => rows[0]?.count ?? 0),
+  ])
+
+  return { items, total, page: input.page, pageSize: input.pageSize }
+}
+

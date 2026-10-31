@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
+import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { TablePagination } from '../../../components/TablePagination.tsx'
+import { LocationSelect } from '../../../components/LocationSelect.tsx'
+import { VariantSelect } from '../../../components/VariantSelect.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listInventoryFn } from '../../../server/functions/inventory.ts'
 import {
@@ -12,6 +16,7 @@ import {
 
 const searchSchema = z.object({
   page: z.number().int().min(1).default(1).catch(1),
+  pageSize: z.number().int().min(1).max(100).default(10).catch(10),
   locationId: z.string().uuid().optional().catch(undefined),
   status: z
     .enum(['quarantined', 'repaired', 'disposed'])
@@ -24,6 +29,7 @@ export const Route = createFileRoute('/_authed/damage/')({
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page,
+    pageSize: search.pageSize,
     locationId: search.locationId,
     status: search.status,
     search: search.search,
@@ -33,6 +39,7 @@ export const Route = createFileRoute('/_authed/damage/')({
       listDamageReportsFn({
         data: {
           page: deps.page,
+          pageSize: deps.pageSize,
           locationId: deps.locationId,
           status: deps.status,
           search: deps.search,
@@ -73,7 +80,6 @@ function DamageReportsPage() {
 
   const [modalError, setModalError] = useState<string | null>(null)
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const sellableLocations = locations.filter((l) => l.type !== 'damaged')
 
   // Stock at selected source location for report modal
@@ -237,20 +243,8 @@ function DamageReportsPage() {
           }}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 transition shadow-sm"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          + Report Damaged Stock
+          <Plus className="w-4 h-4" />
+          Report Damaged Stock
         </button>
       </div>
 
@@ -615,41 +609,30 @@ function DamageReportsPage() {
         </div>
 
         {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 bg-neutral-50 text-sm">
-            <span className="text-neutral-500">
-              Showing page <span className="font-medium">{page}</span> of{' '}
-              <span className="font-medium">{totalPages}</span> ({total} reports)
-            </span>
-            <div className="flex gap-1">
-              <button
-                disabled={page <= 1}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      page: Math.max(1, page - 1),
-                    }),
-                  })
-                }
-                className="px-3 py-1 rounded border border-neutral-300 bg-white text-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium hover:bg-neutral-100"
-              >
-                Previous
-              </button>
-              <button
-                disabled={page >= totalPages}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({ ...prev, page: page + 1 }),
-                  })
-                }
-                className="px-3 py-1 rounded border border-neutral-300 bg-white text-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium hover:bg-neutral-100"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="border-t border-neutral-200 bg-neutral-50 px-4">
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={(newPage) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  page: newPage,
+                }),
+              })
+            }
+            onPageSizeChange={(newPageSize) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  pageSize: newPageSize,
+                  page: 1,
+                }),
+              })
+            }
+          />
+        </div>
       </div>
 
       {/* Report Damage Modal */}
@@ -677,47 +660,27 @@ function DamageReportsPage() {
                 <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
                   Source Location <span className="text-rose-500">*</span>
                 </label>
-                <select
+                <LocationSelect
                   value={reportSourceId}
-                  onChange={(e) => {
-                    setReportSourceId(e.target.value)
+                  onChange={(val) => {
+                    setReportSourceId(val)
                     setReportVariantId('')
                   }}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white font-medium text-neutral-800"
-                  required
-                >
-                  <option value="">-- Choose Location --</option>
-                  {sellableLocations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name} ({loc.type === 'warehouse' ? 'Warehouse' : 'Store'})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="-- Choose Location --"
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
                   Product Variant <span className="text-rose-500">*</span>
                 </label>
-                <select
+                <VariantSelect
+                  locationId={reportSourceId}
                   value={reportVariantId}
-                  onChange={(e) => setReportVariantId(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white font-medium text-neutral-800"
-                  required
+                  onChange={(val) => setReportVariantId(val)}
+                  placeholder="-- Choose In-Stock Variant --"
                   disabled={!reportSourceId}
-                >
-                  <option value="">-- Choose In-Stock Variant --</option>
-                  {sourceStockItems.map((item) => (
-                    <option key={item.variantId} value={item.variantId}>
-                      {item.product.name} ({item.variant.sku || 'No SKU'}) — Available: {item.quantity} {item.product.unit}
-                    </option>
-                  ))}
-                </select>
-                {reportSourceId && sourceStockItems.length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    No active stock available at this location.
-                  </p>
-                )}
+                />
               </div>
 
               <div>

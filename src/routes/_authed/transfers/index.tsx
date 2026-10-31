@@ -1,11 +1,14 @@
 import { useMemo } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { Plus, Image as ImageIcon } from 'lucide-react'
 import { z } from 'zod'
+import { TablePagination } from '../../../components/TablePagination.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listTransfersFn } from '../../../server/functions/transfers.ts'
 
 const searchSchema = z.object({
   page: z.number().int().min(1).default(1).catch(1),
+  pageSize: z.number().int().min(1).max(100).default(10).catch(10),
   locationId: z.string().uuid().optional().catch(undefined),
   search: z.string().trim().min(1).optional().catch(undefined),
 })
@@ -14,6 +17,7 @@ export const Route = createFileRoute('/_authed/transfers/')({
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page,
+    pageSize: search.pageSize,
     locationId: search.locationId,
     search: search.search,
   }),
@@ -22,6 +26,7 @@ export const Route = createFileRoute('/_authed/transfers/')({
       listTransfersFn({
         data: {
           page: deps.page,
+          pageSize: deps.pageSize,
           locationId: deps.locationId,
           search: deps.search,
         },
@@ -43,8 +48,6 @@ function TransfersPage() {
     () => locations.filter((l) => l.type !== 'damaged' && l.isActive),
     [locations],
   )
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -85,9 +88,7 @@ function TransfersPage() {
           to="/transfers/new"
           className="inline-flex items-center gap-1.5 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <Plus className="h-4 w-4" />
           New Transfer
         </Link>
       </div>
@@ -185,19 +186,7 @@ function TransfersPage() {
                               }}
                             />
                           ) : (
-                            <svg
-                              className="h-5 w-5 text-gray-300"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                              />
-                            </svg>
+                            <ImageIcon className="h-5 w-5 text-gray-300" />
                           )}
                         </div>
 
@@ -262,30 +251,22 @@ function TransfersPage() {
       )}
 
       {/* Pagination */}
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-        <span>
-          {total} transfer records · page {page} of {totalPages}
-        </span>
-        <div className="flex gap-3">
-          {page > 1 ? (
-            <Link
-              to="/transfers"
-              search={(prev) => ({ ...prev, page: page - 1 })}
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Previous
-            </Link>
-          ) : null}
-          {page < totalPages ? (
-            <Link
-              to="/transfers"
-              search={(prev) => ({ ...prev, page: page + 1 })}
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Next
-            </Link>
-          ) : null}
-        </div>
+      <div className="mt-4">
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={(newPage) =>
+            navigate({
+              search: (prev) => ({ ...prev, page: newPage }),
+            })
+          }
+          onPageSizeChange={(newPageSize) =>
+            navigate({
+              search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+            })
+          }
+        />
       </div>
     </main>
   )

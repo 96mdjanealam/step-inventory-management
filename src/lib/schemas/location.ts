@@ -24,6 +24,16 @@ export const listLocationsSchema = z.object({
 })
 export type ListLocationsInput = z.input<typeof listLocationsSchema>
 
+export const listLocationsPaginatedSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(100).default(10),
+  type: z.enum(['warehouse', 'store', 'damaged']).optional(),
+  storeType: z.enum(['ownstore', 'franchise']).optional(),
+  includeInactive: z.boolean().default(false),
+  search: z.string().trim().min(1).optional(),
+})
+export type ListLocationsPaginatedInput = z.output<typeof listLocationsPaginatedSchema>
+
 export const toggleLocationActiveSchema = z.object({
   id: z.uuid(),
   isActive: z.boolean(),

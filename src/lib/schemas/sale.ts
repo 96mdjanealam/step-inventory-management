@@ -40,9 +40,25 @@ export const listSalesSchema = z.object({
   pageSize: z.number().int().min(1).max(100).default(20).optional(),
 })
 
+export const getStoreInventorySchema = z.object({
+  locationId: z.string().uuid('Invalid location ID'),
+})
+
+export const listStoreInventoryPaginatedSchema = z.object({
+  locationId: z.string().uuid('Invalid location ID'),
+  productId: z.string().uuid('Invalid product ID').optional(),
+  search: z.string().trim().optional(),
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(100).default(10),
+})
+export type ListStoreInventoryPaginatedInput = z.infer<
+  typeof listStoreInventoryPaginatedSchema
+>
+
 export type SaleItemInput = z.infer<typeof saleItemInputSchema>
 export type CreateSaleInput = z.infer<typeof createSaleSchema>
 export type CancelSaleInput = z.infer<typeof cancelSaleSchema>
 export type GetSaleInput = z.infer<typeof getSaleSchema>
 export type ListSalesInput = z.infer<typeof listSalesSchema>
+export type GetStoreInventoryInput = z.infer<typeof getStoreInventorySchema>
 

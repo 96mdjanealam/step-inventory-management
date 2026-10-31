@@ -5,6 +5,7 @@ import { logActivity } from './activity-logs.ts'
 import type {
   CreateStoreInput,
   ListLocationsInput,
+  ListLocationsPaginatedInput,
   ToggleLocationActiveInput,
   UpdateLocationInput,
 } from '../../lib/schemas/location.ts'
@@ -143,6 +144,37 @@ export async function listLocations(input: ListLocationsInput = {}) {
     .orderBy(locations.type, locations.name)
 
   return items
+}
+
+export async function listLocationsPaginated(input: ListLocationsPaginatedInput) {
+  const searchPattern = input.search?.replace(/[%_\\]/g, '\\$&')
+
+  const conditions = [
+    input.includeInactive ? undefined : eq(locations.isActive, true),
+    input.type ? eq(locations.type, input.type) : undefined,
+    input.storeType ? eq(locations.storeType, input.storeType) : undefined,
+    searchPattern
+      ? or(
+          ilike(locations.name, `%${searchPattern}%`),
+          ilike(locations.address, `%${searchPattern}%`),
+        )
+      : undefined,
+  ]
+
+  const where = and(...conditions.filter(Boolean))
+
+  const [items, total] = await Promise.all([
+    db
+      .select()
+      .from(locations)
+      .where(where)
+      .orderBy(locations.type, locations.name)
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+    db.$count(locations, where),
+  ])
+
+  return { items, total, page: input.page, pageSize: input.pageSize }
 }
 
 export async function listLocationsWithStock(input: ListLocationsInput = {}) {

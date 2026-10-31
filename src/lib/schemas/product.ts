@@ -151,3 +151,13 @@ export const toggleVariantActiveSchema = z.object({
   isActive: z.boolean(),
 })
 export type ToggleVariantActiveInput = z.output<typeof toggleVariantActiveSchema>
+
+export const listProductVariantsPaginatedSchema = z.object({
+  productId: z.uuid(),
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(100).default(10),
+  search: z.string().trim().optional(),
+})
+export type ListProductVariantsPaginatedInput = z.output<
+  typeof listProductVariantsPaginatedSchema
+>

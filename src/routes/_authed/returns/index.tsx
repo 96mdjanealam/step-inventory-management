@@ -1,10 +1,12 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { TablePagination } from '../../../components/TablePagination.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listReturnsFn } from '../../../server/functions/returns.ts'
 
 const searchSchema = z.object({
   page: z.number().int().min(1).default(1).catch(1),
+  pageSize: z.number().int().min(1).max(100).default(10).catch(10),
   locationId: z.string().uuid().optional().catch(undefined),
   search: z.string().trim().min(1).optional().catch(undefined),
 })
@@ -13,6 +15,7 @@ export const Route = createFileRoute('/_authed/returns/')({
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page,
+    pageSize: search.pageSize,
     locationId: search.locationId,
     search: search.search,
   }),
@@ -21,6 +24,7 @@ export const Route = createFileRoute('/_authed/returns/')({
       listReturnsFn({
         data: {
           page: deps.page,
+          pageSize: deps.pageSize,
           locationId: deps.locationId,
           search: deps.search,
         },
@@ -37,7 +41,6 @@ function ReturnsPage() {
   const { search, locationId } = Route.useSearch()
   const navigate = Route.useNavigate()
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const storeLocations = locations.filter((l) => l.type === 'store')
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
@@ -245,41 +248,30 @@ function ReturnsPage() {
         </div>
 
         {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 bg-neutral-50 text-sm">
-            <span className="text-neutral-500">
-              Showing page <span className="font-medium">{page}</span> of{' '}
-              <span className="font-medium">{totalPages}</span> ({total} returns)
-            </span>
-            <div className="flex gap-1">
-              <button
-                disabled={page <= 1}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      page: Math.max(1, page - 1),
-                    }),
-                  })
-                }
-                className="px-3 py-1 rounded border border-neutral-300 bg-white text-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium hover:bg-neutral-100"
-              >
-                Previous
-              </button>
-              <button
-                disabled={page >= totalPages}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({ ...prev, page: page + 1 }),
-                  })
-                }
-                className="px-3 py-1 rounded border border-neutral-300 bg-white text-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium hover:bg-neutral-100"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="border-t border-neutral-200 bg-neutral-50 px-4">
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={(newPage) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  page: newPage,
+                }),
+              })
+            }
+            onPageSizeChange={(newPageSize) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  pageSize: newPageSize,
+                  page: 1,
+                }),
+              })
+            }
+          />
+        </div>
       </div>
     </div>
   )

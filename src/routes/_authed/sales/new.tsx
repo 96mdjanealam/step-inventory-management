@@ -1,107 +1,314 @@
 import { useState, useMemo } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
+import { ArrowLeft, AlertCircle, Package, Plus, Image as ImageIcon } from 'lucide-react'
+import { LocationSelect } from '../../../components/LocationSelect.tsx'
+import { ProductSelect } from '../../../components/ProductSelect.tsx'
+import { VariantSelect } from '../../../components/VariantSelect.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
-import { listInventoryFn } from '../../../server/functions/inventory.ts'
-import { createSaleFn } from '../../../server/functions/sales.ts'
+import {
+  createSaleFn,
+  getStoreInventoryForSaleFn,
+} from '../../../server/functions/sales.ts'
 
 export const Route = createFileRoute('/_authed/sales/new')({
   loader: async () => {
-    const [locations, inventoryData] = await Promise.all([
-      listLocationsFn({ data: { includeInactive: false } }),
-      listInventoryFn({ data: { pageSize: 100 } }),
-    ])
+    const locations = await listLocationsFn({ data: { includeInactive: false } })
+    const storeLocations = locations.filter((l) => l.type === 'store')
+    const initialLocationId = storeLocations[0]?.id
+    const initialInventory = initialLocationId
+      ? await getStoreInventoryForSaleFn({ data: { locationId: initialLocationId } })
+      : []
+
     return {
-      locations: locations.filter((l) => l.type === 'store'),
-      inventory: inventoryData.items,
+      locations: storeLocations,
+      initialInventory,
     }
   },
   component: NewSalePage,
 })
 
-interface LineItem {
+interface OrderItem {
+  id: string
+  productId: string
+  variantId: string
+  quantity: string
+}
+
+interface DraftState {
+  productId: string
   variantId: string
   quantity: string
 }
 
 function NewSalePage() {
-  const { locations, inventory } = Route.useLoaderData()
+  const { locations, initialInventory } = Route.useLoaderData()
   const router = useRouter()
   const createSale = useServerFn(createSaleFn)
+  const getStoreInventory = useServerFn(getStoreInventoryForSaleFn)
 
   const [locationId, setLocationId] = useState<string>(
     locations.length > 0 ? locations[0].id : '',
   )
+  const [storeInventory, setStoreInventory] = useState(initialInventory)
+  const [loadingInventory, setLoadingInventory] = useState(false)
+
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [notes, setNotes] = useState('')
 
-  const [items, setItems] = useState<LineItem[]>([
-    { variantId: '', quantity: '1' },
-  ])
+  // Committed items in the order
+  const [items, setItems] = useState<OrderItem[]>([])
+
+  // State for Add / Edit Row
+  const [isAdding, setIsAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState<DraftState>({
+    productId: '',
+    variantId: '',
+    quantity: '1',
+  })
+  const [draftError, setDraftError] = useState<string | null>(null)
+
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Items in inventory at selected store
-  const storeInventory = useMemo(() => {
-    return inventory.filter((item) => item.locationId === locationId)
-  }, [inventory, locationId])
-
-  function getAvailableStock(variantId: string): string {
-    const row = storeInventory.find((i) => i.variantId === variantId)
-    return row ? row.quantity : '0.000'
-  }
-
-  function getVariantInfo(variantId: string) {
-    const row = storeInventory.find((i) => i.variantId === variantId)
-    if (!row) return null
-    return {
-      productName: row.product.name,
-      sku: row.variant.sku,
-      unit: row.product.unit,
-      measurementType: row.product.measurementType,
-      price: row.variant.discountedPrice || '0.00',
+  // Fetch store inventory when location changes
+  async function handleLocationChange(newLocId: string) {
+    setLocationId(newLocId)
+    setLoadingInventory(true)
+    setError(null)
+    setIsAdding(false)
+    setEditingId(null)
+    setItems([])
+    try {
+      const inv = await getStoreInventory({ data: { locationId: newLocId } })
+      setStoreInventory(inv)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load inventory for selected store')
+    } finally {
+      setLoadingInventory(false)
     }
   }
 
-  function handleAddItem() {
-    setItems((prev) => [...prev, { variantId: '', quantity: '1' }])
+  // Available unique products in stock at the selected store
+  const availableProducts = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        id: string
+        name: string
+        category: string
+        unit: string
+        measurementType: 'count' | 'weight' | 'volume'
+        image: string | null
+        totalQuantity: number
+      }
+    >()
+
+    for (const row of storeInventory) {
+      const existing = map.get(row.productId)
+      const qty = Number(row.quantity) || 0
+      if (existing) {
+        existing.totalQuantity += qty
+      } else {
+        map.set(row.productId, {
+          id: row.productId,
+          name: row.productName,
+          category: row.category,
+          unit: row.unit,
+          measurementType: row.measurementType,
+          image: row.variantImage || row.productImages?.[0] || null,
+          totalQuantity: qty,
+        })
+      }
+    }
+
+    return Array.from(map.values())
+  }, [storeInventory])
+
+  // Get all variants available for a selected product
+  function getProductVariants(productId: string) {
+    if (!productId) return []
+    return storeInventory.filter((r) => r.productId === productId)
   }
 
-  function handleRemoveItem(index: number) {
-    setItems((prev) => prev.filter((_, i) => i !== index))
+  // Look up specific variant details
+  function getVariantInfo(variantId: string) {
+    if (!variantId) return null
+    const row = storeInventory.find((i) => i.variantId === variantId)
+    if (!row) return null
+
+    const attrs =
+      row.attributes && typeof row.attributes === 'object'
+        ? Object.entries(row.attributes)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ')
+        : ''
+
+    return {
+      productId: row.productId,
+      productName: row.productName,
+      sku: row.sku,
+      attributesText: attrs,
+      unit: row.unit,
+      measurementType: row.measurementType,
+      image: row.variantImage || row.productImages?.[0] || null,
+      price: row.price || '0.00',
+      availableStock: row.quantity,
+    }
   }
 
-  function handleItemChange(
-    index: number,
-    field: keyof LineItem,
-    value: string,
-  ) {
-    setItems((prev) => {
-      const next = [...prev]
-      next[index] = { ...next[index], [field]: value }
-      return next
+  // Start adding a new item
+  function handleOpenAdd() {
+    setEditingId(null)
+    setDraftError(null)
+    // If available products exist, default to first or blank
+    setDraft({
+      productId: '',
+      variantId: '',
+      quantity: '1',
+    })
+    setIsAdding(true)
+  }
+
+  // Start editing an existing item
+  function handleOpenEdit(item: OrderItem) {
+    setIsAdding(false)
+    setEditingId(item.id)
+    setDraftError(null)
+    setDraft({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
     })
   }
 
-  // Calculate totals
+  function handleCancelDraft() {
+    setIsAdding(false)
+    setEditingId(null)
+    setDraftError(null)
+  }
+
+  function handleDraftProductChange(newProductId: string) {
+    const variants = getProductVariants(newProductId)
+    const defaultVariantId =
+      variants.length === 1 ? variants[0].variantId : (variants[0]?.variantId || '')
+
+    setDraft({
+      productId: newProductId,
+      variantId: defaultVariantId,
+      quantity: '1',
+    })
+    setDraftError(null)
+  }
+
+  function handleDraftVariantChange(newVariantId: string) {
+    setDraft((prev) => ({
+      ...prev,
+      variantId: newVariantId,
+      quantity: '1',
+    }))
+    setDraftError(null)
+  }
+
+  // Save current draft (either insert new item or update existing)
+  function handleSaveDraft() {
+    setDraftError(null)
+
+    if (!draft.productId) {
+      setDraftError('Please choose a product')
+      return
+    }
+
+    if (!draft.variantId) {
+      setDraftError('Please choose a variant')
+      return
+    }
+
+    const info = getVariantInfo(draft.variantId)
+    if (!info) {
+      setDraftError('Selected variant is not available in store stock')
+      return
+    }
+
+    const qtyNum = Number(draft.quantity)
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+      setDraftError('Please enter a valid positive quantity')
+      return
+    }
+
+    // Whole number validation for piece/count
+    const isCount = info.measurementType === 'count' || info.unit === 'piece'
+    if (isCount && !Number.isInteger(qtyNum)) {
+      setDraftError(`Quantity for ${info.unit} items must be a whole number`)
+      return
+    }
+
+    // Total quantity check for this variant across the order (excluding currently editing row)
+    const otherUsage = items
+      .filter((i) => i.id !== editingId && i.variantId === draft.variantId)
+      .reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)
+
+    const totalNeeded = otherUsage + qtyNum
+    const available = Number(info.availableStock)
+    if (totalNeeded > available) {
+      setDraftError(
+        `Quantity exceeds available stock (${info.availableStock} ${info.unit} in stock).`,
+      )
+      return
+    }
+
+    if (editingId) {
+      // Update existing item
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === editingId
+            ? {
+                ...i,
+                productId: draft.productId,
+                variantId: draft.variantId,
+                quantity: draft.quantity.trim(),
+              }
+            : i,
+        ),
+      )
+      setEditingId(null)
+    } else {
+      // Add new item to list
+      setItems((prev) => [
+        ...prev,
+        {
+          id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          productId: draft.productId,
+          variantId: draft.variantId,
+          quantity: draft.quantity.trim(),
+        },
+      ])
+      setIsAdding(false)
+    }
+  }
+
+  function handleRemoveItem(idToRemove: string) {
+    setItems((prev) => prev.filter((i) => i.id !== idToRemove))
+    if (editingId === idToRemove) {
+      setEditingId(null)
+    }
+  }
+
+  // Order summary calculations
   const orderSummary = useMemo(() => {
     let totalCents = 0n
-    let hasStockError = false
+    let totalItems = 0
 
     for (const item of items) {
-      if (!item.variantId) continue
       const info = getVariantInfo(item.variantId)
       if (!info) continue
 
       const qty = Number(item.quantity)
       if (isNaN(qty) || qty <= 0) continue
 
-      const available = Number(getAvailableStock(item.variantId))
-      if (qty > available) {
-        hasStockError = true
-      }
-
+      totalItems += 1
       const price = Number(info.price)
       const subtotalCents = BigInt(Math.round(qty * price * 100))
       totalCents += subtotalCents
@@ -110,7 +317,7 @@ function NewSalePage() {
     const totalAmount = (Number(totalCents) / 100).toFixed(2)
     return {
       totalAmount,
-      hasStockError,
+      totalItems,
     }
   }, [items, storeInventory])
 
@@ -123,26 +330,9 @@ function NewSalePage() {
       return
     }
 
-    const validItems = items.filter((i) => i.variantId && Number(i.quantity) > 0)
-    if (validItems.length === 0) {
-      setError('Please add at least one item with a valid quantity')
+    if (items.length === 0) {
+      setError('Please add at least one item to the order')
       return
-    }
-
-    if (orderSummary.hasStockError) {
-      setError('One or more items exceed the available stock at this store')
-      return
-    }
-
-    for (const item of validItems) {
-      const info = getVariantInfo(item.variantId)
-      const isCount = info?.measurementType === 'count' || info?.unit === 'piece'
-      if (isCount && !Number.isInteger(Number(item.quantity))) {
-        setError(
-          `Quantity for ${info?.productName || 'item'} (${info?.unit || 'piece'}) must be a whole number`,
-        )
-        return
-      }
     }
 
     try {
@@ -152,7 +342,7 @@ function NewSalePage() {
           locationId,
           customerName: customerName.trim() || undefined,
           customerPhone: customerPhone.trim() || undefined,
-          items: validItems.map((i) => ({
+          items: items.map((i) => ({
             variantId: i.variantId,
             quantity: String(i.quantity),
           })),
@@ -170,294 +360,422 @@ function NewSalePage() {
     }
   }
 
+  const selectedLocation = locations.find((l) => l.id === locationId)
+  const draftInfo = getVariantInfo(draft.variantId)
+  const isDraftCount =
+    draftInfo?.measurementType === 'count' || draftInfo?.unit === 'piece'
+
+  const draftNumQty = Number(draft.quantity)
+  const draftSubtotal =
+    draftInfo && !isNaN(draftNumQty) && draftNumQty > 0
+      ? (draftNumQty * Number(draftInfo.price)).toFixed(2)
+      : '0.00'
+
+  // Component rendering the 2-sided Add / Edit Builder Row
+  const renderBuilderRow = (mode: 'add' | 'edit') => {
+    return (
+      <div className="p-4 rounded-xl border-2 border-neutral-800 bg-neutral-50/90 shadow-sm space-y-3 animate-in fade-in duration-150">
+        <div className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-neutral-800 font-semibold">
+            <span className="w-2 h-2 rounded-full bg-neutral-900"></span>
+            {mode === 'edit' ? 'Edit Item' : 'Configure New Item'}
+          </span>
+          {draftInfo && (
+            <span className="text-xs text-neutral-600 font-normal">
+              Available at Store:{' '}
+              <strong className="text-emerald-700">
+                {draftInfo.availableStock} {draftInfo.unit}
+              </strong>
+            </span>
+          )}
+        </div>
+
+        {/* 2 SIDES: Left = Product Name & Variant | Right = Quantity, Price, Subtotal & Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start pt-1">
+          {/* LEFT SIDE: Product & Variant (Vertical) */}
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Product Name *
+              </label>
+              <ProductSelect
+                value={draft.productId}
+                onChange={(val) => handleDraftProductChange(val)}
+                placeholder="-- Choose Product --"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Variant *
+              </label>
+              <VariantSelect
+                locationId={locationId}
+                productId={draft.productId}
+                value={draft.variantId}
+                onChange={(newVariantId) => handleDraftVariantChange(newVariantId)}
+                placeholder={
+                  !draft.productId
+                    ? '-- Select Product First --'
+                    : '-- Choose Variant --'
+                }
+                disabled={!draft.productId}
+              />
+            </div>
+          </div>
+
+          {/* RIGHT SIDE: Quantity, Price/Subtotal & Actions (Vertical) */}
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Quantity {draftInfo ? `(${draftInfo.unit})` : ''} *
+              </label>
+              <input
+                type="number"
+                step={isDraftCount ? '1' : '0.001'}
+                min={isDraftCount ? '1' : '0.001'}
+                max={draftInfo ? draftInfo.availableStock : undefined}
+                value={draft.quantity}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, quantity: e.target.value }))
+                }
+                disabled={!draft.variantId}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium focus:outline-none focus:border-neutral-900 bg-white text-neutral-900 disabled:opacity-50"
+              />
+            </div>
+
+            {/* Price & Subtotal */}
+            <div className="flex items-center justify-between px-3 py-2 bg-neutral-100/80 rounded-lg border border-neutral-200">
+              <div className="text-xs text-neutral-500">
+                Unit Price:{' '}
+                <span className="font-semibold text-neutral-800">
+                  ${draftInfo ? Number(draftInfo.price).toFixed(2) : '0.00'}
+                </span>
+              </div>
+              <div className="text-sm font-bold text-neutral-900">
+                Subtotal: ${draftSubtotal}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCancelDraft}
+                className="px-3.5 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={!draft.variantId || !draft.quantity || Number(draft.quantity) <= 0}
+                className="px-4 py-2 rounded-lg bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-800 disabled:opacity-40 transition shadow-xs"
+              >
+                {mode === 'edit' ? 'Update Item' : 'Add Item'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {draftError && (
+          <p className="text-xs font-medium text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+            {draftError}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             to="/sales"
             className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition"
+            title="Back to Sales"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
+            <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
               New Point-of-Sale Order
             </h1>
             <p className="text-sm text-neutral-500">
-              Record a customer purchase and immediately decrement store stock.
+              Select store location, add items to the order, and record customer purchase.
             </p>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2">
-          <svg
-            className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span>{error}</span>
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
+          <div className="font-medium">{error}</div>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Store & Customer Details */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-5 rounded-xl border border-neutral-200 shadow-sm">
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Store Location <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={locationId}
-              onChange={(e) => {
-                setLocationId(e.target.value)
-                setItems([{ variantId: '', quantity: '1' }])
-              }}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white font-medium text-neutral-800"
-              required
-            >
-              {locations.length === 0 ? (
-                <option value="">No active store locations available</option>
-              ) : (
-                locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name} ({loc.storeType === 'ownstore' ? 'Own Store' : 'Franchise'})
-                  </option>
-                ))
-              )}
-            </select>
+        {/* Step 1: Store Location & Customer Information */}
+        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-2.5">
+            <div>
+              <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                Step 1
+              </span>
+              <h2 className="text-base font-semibold text-neutral-900">
+                Store Location & Customer Info
+              </h2>
+            </div>
+            {selectedLocation && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                {selectedLocation.storeType === 'ownstore' ? 'Company Store' : 'Franchise Store'}
+              </span>
+            )}
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Customer Name
-            </label>
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="e.g. Jane Doe (optional)"
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
-            />
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Sale Store Location <span className="text-rose-500">*</span>
+              </label>
+              <LocationSelect
+                value={locationId}
+                type="store"
+                onChange={(newLocId) => handleLocationChange(newLocId)}
+                placeholder="-- Select Store Location --"
+                initialLocation={selectedLocation}
+              />
+              <div className="mt-1 text-xs text-neutral-500">
+                {loadingInventory
+                  ? 'Loading inventory...'
+                  : `${availableProducts.length} product(s) in stock`}
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Customer Phone
-            </label>
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              placeholder="e.g. +1 555-0199 (optional)"
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
-            />
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Customer Name (Optional)
+              </label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="e.g. John Smith"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Customer Phone (Optional)
+              </label>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="e.g. +1 555-0199"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Order Items */}
+        {/* Step 2: Order Items */}
         <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <div>
+              <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                Step 2
+              </span>
               <h2 className="text-base font-semibold text-neutral-900">
-                Order Items
+                Order Items ({items.length})
               </h2>
               <p className="text-xs text-neutral-500">
-                Select items from available store stock.
+                Pick products and variants available at {selectedLocation?.name || 'this store'}.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleAddItem}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-lg transition"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Add Item
-            </button>
           </div>
 
-          <div className="space-y-3">
-            {items.map((item, idx) => {
-              const info = getVariantInfo(item.variantId)
-              const availableStock = getAvailableStock(item.variantId)
-              const numQty = Number(item.quantity)
-              const numStock = Number(availableStock)
-              const isOverStock =
-                item.variantId !== '' && numQty > numStock && !isNaN(numQty)
-              const lineSubtotal =
-                info && !isNaN(numQty) && numQty > 0
-                  ? (numQty * Number(info.price)).toFixed(2)
-                  : '0.00'
-
-              return (
-                <div
-                  key={idx}
-                  className={`p-3.5 rounded-lg border ${
-                    isOverStock
-                      ? 'border-rose-300 bg-rose-50/40'
-                      : 'border-neutral-200 bg-neutral-50/50'
-                  } flex flex-col md:flex-row items-start md:items-center gap-3`}
-                >
-                  <div className="flex-1 w-full">
-                    <label className="block text-xs text-neutral-500 mb-1">
-                      Select Item in Stock
-                    </label>
-                    <select
-                      value={item.variantId}
-                      onChange={(e) =>
-                        handleItemChange(idx, 'variantId', e.target.value)
-                      }
-                      className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:border-neutral-900 font-medium text-neutral-800"
-                      required
-                    >
-                      <option value="">-- Choose In-Stock Variant --</option>
-                      {storeInventory.map((row) => (
-                        <option key={row.variantId} value={row.variantId}>
-                          {row.product.name} ({row.variant.sku || 'No SKU'}) — ${Number(row.variant.discountedPrice).toFixed(2)} [In Stock: {row.quantity} {row.product.unit}]
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="w-full md:w-36">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs text-neutral-500">
-                        Quantity
-                      </label>
-                      {info && (
-                        <span
-                          className={`text-xs ${
-                            isOverStock
-                              ? 'text-rose-600 font-semibold'
-                              : 'text-neutral-500'
-                          }`}
-                        >
-                          Max: {availableStock}
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step={
-                          info?.measurementType === 'count' ||
-                          info?.unit === 'piece'
-                            ? '1'
-                            : '0.001'
+          {availableProducts.length === 0 ? (
+            <div className="p-8 text-center rounded-lg border border-dashed border-amber-200 bg-amber-50/50">
+              <Package className="w-8 h-8 mx-auto text-amber-500 mb-2" />
+              <h3 className="text-sm font-semibold text-amber-900">
+                No Stock Available at {selectedLocation?.name || 'This Location'}
+              </h3>
+              <p className="text-xs text-amber-700 mt-1 max-w-md mx-auto">
+                There are currently no active in-stock products at this store. Please receive stock or transfer items from the Main Warehouse first.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Summary table of committed items */}
+              {items.length > 0 && (
+                <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b bg-neutral-50 text-xs font-semibold text-neutral-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-3">Product / Variant</th>
+                        <th className="px-4 py-3">Unit Price</th>
+                        <th className="px-4 py-3">Quantity</th>
+                        <th className="px-4 py-3">Subtotal</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                      {items.map((item) => {
+                        const isThisEditing = editingId === item.id
+                        if (isThisEditing) {
+                          return (
+                            <tr key={item.id}>
+                              <td colSpan={5} className="p-2 bg-neutral-50/60">
+                                {renderBuilderRow('edit')}
+                              </td>
+                            </tr>
+                          )
                         }
-                        min={
-                          info?.measurementType === 'count' ||
-                          info?.unit === 'piece'
-                            ? '1'
-                            : '0.001'
-                        }
-                        value={item.quantity}
-                        onChange={(e) =>
-                          handleItemChange(idx, 'quantity', e.target.value)
-                        }
-                        className={`w-full rounded-md border ${
-                          isOverStock
-                            ? 'border-rose-500 bg-white text-rose-900'
-                            : 'border-neutral-300 bg-white'
-                        } px-2.5 py-1.5 text-sm font-medium focus:outline-none focus:border-neutral-900`}
-                        required
-                      />
-                      {info && (
-                        <span className="absolute right-2.5 top-2 text-xs text-neutral-400">
-                          {info.unit}
-                        </span>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="w-full md:w-28 text-left md:text-right">
-                    <div className="text-xs text-neutral-500 mb-1">Subtotal</div>
-                    <div className="text-sm font-semibold text-neutral-900 py-1.5">
-                      ${lineSubtotal}
-                    </div>
-                  </div>
+                        const info = getVariantInfo(item.variantId)
+                        const numQty = Number(item.quantity)
+                        const subtotal =
+                          info && !isNaN(numQty)
+                            ? (numQty * Number(info.price)).toFixed(2)
+                            : '0.00'
 
-                  <div className="pt-2 md:pt-4">
-                    <button
-                      type="button"
-                      disabled={items.length === 1}
-                      onClick={() => handleRemoveItem(idx)}
-                      className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
-                      title="Remove item"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+                        return (
+                          <tr key={item.id} className="hover:bg-neutral-50/50">
+                            {/* Product & Variant with Thumbnail */}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg border border-neutral-200 bg-white flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                  {info?.image ? (
+                                    <img
+                                      src={info.image}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        ;(e.target as HTMLImageElement).src =
+                                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
+                                      }}
+                                    />
+                                  ) : (
+                                    <ImageIcon className="w-5 h-5 text-neutral-300" />
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-neutral-900">
+                                    {info?.productName || 'Unknown Product'}
+                                  </div>
+                                  <div className="text-xs text-neutral-500">
+                                    {info?.sku ? `SKU: ${info.sku}` : 'Default Variant'}
+                                    {info?.attributesText ? ` · ${info.attributesText}` : ''}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Unit Price */}
+                            <td className="px-4 py-3 font-medium text-neutral-700 whitespace-nowrap">
+                              ${info ? Number(info.price).toFixed(2) : '0.00'}
+                            </td>
+
+                            {/* Quantity */}
+                            <td className="px-4 py-3 font-bold text-neutral-900 whitespace-nowrap">
+                              {item.quantity}{' '}
+                              <span className="text-xs font-normal text-neutral-500">
+                                {info?.unit || 'unit'}
+                              </span>
+                            </td>
+
+                            {/* Subtotal */}
+                            <td className="px-4 py-3 font-bold text-neutral-900 whitespace-nowrap">
+                              ${subtotal}
+                            </td>
+
+                            {/* Actions: Edit & Delete */}
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(item)}
+                                  className="px-2.5 py-1 text-xs font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-md transition"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(item.id)}
+                                  className="px-2 py-1 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-md transition"
+                                  title="Delete item"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              )
-            })}
-          </div>
+              )}
 
-          <div>
+              {/* Empty state when 0 items added yet and not adding */}
+              {items.length === 0 && !isAdding && (
+                <div className="py-8 text-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50">
+                  <p className="text-sm text-neutral-500">
+                    No items added to this order yet.
+                  </p>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Click the button below to add your first product.
+                  </p>
+                </div>
+              )}
+
+              {/* Add Builder Row if isAdding is active */}
+              {isAdding && renderBuilderRow('add')}
+
+              {/* Add Item Button AT THE END OF THE LIST */}
+              {!isAdding && !editingId && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenAdd}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white hover:bg-neutral-50 px-4 py-2.5 text-xs font-semibold text-neutral-800 transition shadow-2xs"
+                  >
+                    <Plus className="w-4 h-4 text-neutral-500" />
+                    Add Item to Order
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Order Notes */}
+          <div className="pt-3 border-t border-neutral-100">
             <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Order Notes / Comments
+              Order Notes / Payment Remarks (Optional)
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              placeholder="Any special remarks or payment notes..."
+              placeholder="e.g. Paid in cash, customer requested receipt by SMS, etc."
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
             />
           </div>
         </div>
 
-        {/* Order Summary & Submit Button */}
+        {/* Order Summary & Submit Bar */}
         <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-left w-full sm:w-auto">
-            <span className="text-sm text-neutral-500 block">Total Due</span>
-            <span className="text-3xl font-bold tracking-tight text-neutral-900">
+            <span className="text-xs font-medium text-neutral-500 block">
+              Total Due ({orderSummary.totalItems} item{orderSummary.totalItems === 1 ? '' : 's'})
+            </span>
+            <span className="text-3xl font-extrabold tracking-tight text-neutral-900">
               ${orderSummary.totalAmount}
             </span>
           </div>
@@ -473,14 +791,21 @@ function NewSalePage() {
               type="submit"
               disabled={
                 pending ||
-                orderSummary.hasStockError ||
+                items.length === 0 ||
                 !locationId ||
-                items.filter((i) => i.variantId && Number(i.quantity) > 0)
-                  .length === 0
+                isAdding ||
+                editingId !== null
               }
-              className="px-6 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+              className="px-6 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm flex items-center gap-2"
             >
-              {pending ? 'Processing Order...' : 'Complete & Record Sale'}
+              {pending ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  Processing Order...
+                </>
+              ) : (
+                'Complete & Record Sale'
+              )}
             </button>
           </div>
         </div>

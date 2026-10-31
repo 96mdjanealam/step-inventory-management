@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
+import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { TablePagination } from '../../../components/TablePagination.tsx'
 import {
   createUserFn,
   listUsersFn,
@@ -11,6 +13,7 @@ import {
 
 const searchSchema = z.object({
   page: z.number().int().min(1).default(1).catch(1),
+  pageSize: z.number().int().min(1).max(100).default(10).catch(10),
   search: z.string().trim().min(1).optional().catch(undefined),
   role: z.enum(['admin', 'employee']).optional().catch(undefined),
   includeInactive: z.boolean().default(false).catch(false),
@@ -20,6 +23,7 @@ export const Route = createFileRoute('/_authed/users/')({
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page,
+    pageSize: search.pageSize,
     search: search.search,
     role: search.role,
     includeInactive: search.includeInactive,
@@ -28,6 +32,7 @@ export const Route = createFileRoute('/_authed/users/')({
     listUsersFn({
       data: {
         page: deps.page,
+        pageSize: deps.pageSize,
         search: deps.search,
         role: deps.role,
         includeInactive: deps.includeInactive,
@@ -56,7 +61,6 @@ function UsersPage() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   const isAdmin = user.role === 'admin'
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   if (!isAdmin) {
     return (
@@ -229,9 +233,10 @@ function UsersPage() {
             setCreateError(null)
             setShowCreateModal(true)
           }}
-          className="rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
+          className="inline-flex items-center gap-1.5 rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
         >
-          + New User
+          <Plus className="w-4 h-4" />
+          New User
         </button>
       </div>
 
@@ -372,30 +377,22 @@ function UsersPage() {
       )}
 
       {/* Pagination */}
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-        <span>
-          {total} users · page {page} of {totalPages}
-        </span>
-        <div className="flex gap-3">
-          {page > 1 ? (
-            <Link
-              to="/users"
-              search={(prev) => ({ ...prev, page: page - 1 })}
-              className="text-black underline"
-            >
-              Previous
-            </Link>
-          ) : null}
-          {page < totalPages ? (
-            <Link
-              to="/users"
-              search={(prev) => ({ ...prev, page: page + 1 })}
-              className="text-black underline"
-            >
-              Next
-            </Link>
-          ) : null}
-        </div>
+      <div className="mt-4">
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={(newPage) =>
+            navigate({
+              search: (prev) => ({ ...prev, page: newPage }),
+            })
+          }
+          onPageSizeChange={(newPageSize) =>
+            navigate({
+              search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+            })
+          }
+        />
       </div>
 
       {/* Create User Modal */}

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
+import { Image as ImageIcon } from 'lucide-react'
+import { LocationSelect } from '../../../components/LocationSelect.tsx'
+import { ProductSelect } from '../../../components/ProductSelect.tsx'
+import { VariantSelect } from '../../../components/VariantSelect.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import {
   createTransferFn,
@@ -102,25 +106,6 @@ function NewTransferPage() {
       fetchStockForLocation(sourceLocationId)
     }
   }, [sourceLocationId])
-
-  // Products available in source location
-  const availableProducts = useMemo(() => {
-    const map = new Map<
-      string,
-      { id: string; name: string; category: string; images: string[] }
-    >()
-    for (const item of sourceStock) {
-      if (!map.has(item.productId)) {
-        map.set(item.productId, {
-          id: item.productId,
-          name: item.productName,
-          category: item.category,
-          images: item.productImages || [],
-        })
-      }
-    }
-    return Array.from(map.values())
-  }, [sourceStock])
 
   // Variants available for selected product
   const availableVariants = useMemo(() => {
@@ -260,10 +245,9 @@ function NewTransferPage() {
               <label className="mb-1 block text-xs font-medium text-gray-700">
                 Source Location (Dispatching From) *
               </label>
-              <select
+              <LocationSelect
                 value={sourceLocationId}
-                onChange={(e) => {
-                  const newSource = e.target.value
+                onChange={(newSource) => {
                   setSourceLocationId(newSource)
                   if (newSource === destinationLocationId) {
                     const fallback =
@@ -271,15 +255,9 @@ function NewTransferPage() {
                     setDestinationLocationId(fallback)
                   }
                 }}
-                className={inputClass}
-                required
-              >
-                {eligibleLocations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name} ({l.type === 'warehouse' ? 'Warehouse' : l.storeType})
-                  </option>
-                ))}
-              </select>
+                placeholder="-- Choose Source Location --"
+                initialLocation={sourceLoc}
+              />
             </div>
 
             {/* Destination Facility */}
@@ -287,20 +265,12 @@ function NewTransferPage() {
               <label className="mb-1 block text-xs font-medium text-gray-700">
                 Destination Location (Receiving At) *
               </label>
-              <select
+              <LocationSelect
                 value={destinationLocationId}
-                onChange={(e) => setDestinationLocationId(e.target.value)}
-                className={inputClass}
-                required
-              >
-                {eligibleLocations
-                  .filter((l) => l.id !== sourceLocationId)
-                  .map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name} ({l.type === 'warehouse' ? 'Warehouse' : l.storeType})
-                    </option>
-                  ))}
-              </select>
+                onChange={(newDest) => setDestinationLocationId(newDest)}
+                placeholder="-- Choose Destination Location --"
+                initialLocation={destLoc}
+              />
             </div>
           </div>
 
@@ -341,51 +311,29 @@ function NewTransferPage() {
                 <label className="mb-1 block text-xs font-medium text-gray-700">
                   Select Product *
                 </label>
-                <select
+                <ProductSelect
                   value={selectedProductId}
-                  onChange={(e) => handleProductChange(e.target.value)}
-                  className={inputClass}
-                  required
-                >
-                  {availableProducts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.category})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleProductChange(val)}
+                  placeholder="-- Choose Product --"
+                />
               </div>
 
               {/* Variant Selection */}
-              {availableVariants.length > 0 && (
+              {selectedProductId && (
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-700">
                     Select Variant *
                   </label>
-                  <select
+                  <VariantSelect
+                    locationId={sourceLocationId}
+                    productId={selectedProductId}
                     value={selectedVariantId}
-                    onChange={(e) => {
-                      setSelectedVariantId(e.target.value)
+                    onChange={(val) => {
+                      setSelectedVariantId(val)
                       setTransferQuantity('')
                     }}
-                    className={inputClass}
-                    required
-                  >
-                    {availableVariants.map((v) => {
-                      const attrStr =
-                        v.attributes && typeof v.attributes === 'object'
-                          ? Object.entries(v.attributes)
-                              .map(([k, val]) => `${k}: ${val}`)
-                              .join(', ')
-                          : ''
-                      return (
-                        <option key={v.variantId} value={v.variantId}>
-                          {v.sku ? `SKU: ${v.sku}` : 'Default Variant'}
-                          {attrStr ? ` (${attrStr})` : ''} — Balance:{' '}
-                          {v.quantity} {v.unit}
-                        </option>
-                      )
-                    })}
-                  </select>
+                    placeholder="-- Choose Variant --"
+                  />
                 </div>
               )}
 
@@ -400,19 +348,7 @@ function NewTransferPage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <svg
-                        className="h-6 w-6 text-gray-300"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
+                      <ImageIcon className="h-6 w-6 text-gray-300" />
                     )}
                   </div>
 

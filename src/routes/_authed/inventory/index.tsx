@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
+import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { TablePagination } from '../../../components/TablePagination.tsx'
+import { ProductSelect } from '../../../components/ProductSelect.tsx'
+import { VariantSelect } from '../../../components/VariantSelect.tsx'
 import {
   addStockFn,
   adjustStockFn,
@@ -19,6 +23,7 @@ import { createTransferFn } from '../../../server/functions/transfers.ts'
 
 const searchSchema = z.object({
   page: z.number().int().min(1).default(1).catch(1),
+  pageSize: z.number().int().min(1).max(100).default(10).catch(10),
   locationId: z.string().uuid().optional().catch(undefined),
   search: z.string().trim().min(1).optional().catch(undefined),
   storeType: z.enum(['ownstore', 'franchise']).optional().catch(undefined),
@@ -29,6 +34,7 @@ export const Route = createFileRoute('/_authed/inventory/')({
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page,
+    pageSize: search.pageSize,
     locationId: search.locationId,
     search: search.search,
     storeType: search.storeType,
@@ -51,6 +57,7 @@ export const Route = createFileRoute('/_authed/inventory/')({
         listInventoryFn({
           data: {
             page: deps.page,
+            pageSize: deps.pageSize,
             locationId: deps.locationId,
             search: deps.search,
             includeZeroQuantity: deps.includeZeroQuantity,
@@ -516,7 +523,6 @@ function InventoryPage() {
   if (loaderData.mode === 'location-stock') {
     const loc = loaderData.selectedLocation
     const { items, total, page, pageSize } = loaderData.inventoryData
-    const totalPages = Math.max(1, Math.ceil(total / pageSize))
     const isDamagedLocation = loc?.type === 'damaged'
 
     return (
@@ -586,9 +592,10 @@ function InventoryPage() {
                 <button
                   type="button"
                   onClick={openInflowModal}
-                  className="rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                  className="inline-flex items-center gap-1.5 rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
                 >
-                  + Receive Stock
+                  <Plus className="w-4 h-4" />
+                  Receive Stock
                 </button>
               </div>
             ) : (
@@ -773,30 +780,22 @@ function InventoryPage() {
         )}
 
         {/* Pagination */}
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-          <span>
-            {total} items · page {page} of {totalPages}
-          </span>
-          <div className="flex gap-3">
-            {page > 1 ? (
-              <Link
-                to="/inventory"
-                search={(prev) => ({ ...prev, page: page - 1 })}
-                className="text-black underline"
-              >
-                Previous
-              </Link>
-            ) : null}
-            {page < totalPages ? (
-              <Link
-                to="/inventory"
-                search={(prev) => ({ ...prev, page: page + 1 })}
-                className="text-black underline"
-              >
-                Next
-              </Link>
-            ) : null}
-          </div>
+        <div className="mt-4">
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={(newPage) =>
+              navigate({
+                search: (prev) => ({ ...prev, page: newPage }),
+              })
+            }
+            onPageSizeChange={(newPageSize) =>
+              navigate({
+                search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+              })
+            }
+          />
         </div>
 
         {/* MODAL 1: RECEIVE STOCK (INFLOW) */}
@@ -824,48 +823,30 @@ function InventoryPage() {
                 className="flex flex-col gap-3"
               >
                 {/* 1. Product Selection */}
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Product *
-                  <select
+                <div className="flex flex-col gap-1 text-sm font-medium">
+                  <label className="text-xs font-semibold text-gray-700">
+                    Product *
+                  </label>
+                  <ProductSelect
                     value={selectedProductId}
-                    onChange={(e) => handleProductChange(e.target.value)}
-                    required
-                    className="rounded border px-3 py-2 text-sm"
-                  >
-                    {loaderData.activeProducts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.category}) · {p.unit}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={(val) => handleProductChange(val)}
+                    placeholder="-- Choose Product --"
+                  />
+                </div>
 
                 {/* 2. Variant Selection */}
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Product Variant *
-                  <select
+                <div className="flex flex-col gap-1 text-sm font-medium">
+                  <label className="text-xs font-semibold text-gray-700">
+                    Product Variant *
+                  </label>
+                  <VariantSelect
+                    productId={selectedProductId}
                     value={selectedVariantId}
-                    onChange={(e) => setSelectedVariantId(e.target.value)}
-                    required
-                    className="rounded border px-3 py-2 text-sm"
-                  >
-                    {activeProduct?.variants.map((v) => {
-                      const attrStr = Object.entries(
-                        (v.attributes as Record<string, string>) || {},
-                      )
-                        .map(([key, val]) => `${key}: ${val}`)
-                        .join(', ')
-
-                      return (
-                        <option key={v.id} value={v.id}>
-                          SKU: {v.sku}
-                          {attrStr ? ` (${attrStr})` : ''} — $
-                          {v.discountedPrice}
-                        </option>
-                      )
-                    })}
-                  </select>
-                </label>
+                    onChange={(val) => setSelectedVariantId(val)}
+                    placeholder="-- Choose Variant --"
+                    disabled={!selectedProductId}
+                  />
+                </div>
 
                 {/* 3. Quantity Input with Unit */}
                 <label className="flex flex-col gap-1 text-sm font-medium">
@@ -1173,9 +1154,10 @@ function InventoryPage() {
               setCreateStoreError(null)
               setShowCreateStoreModal(true)
             }}
-            className="rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
           >
-            + New Store
+            <Plus className="w-4 h-4" />
+            New Store
           </button>
         ) : null}
       </div>

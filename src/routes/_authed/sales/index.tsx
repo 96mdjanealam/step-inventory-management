@@ -1,10 +1,13 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { TablePagination } from '../../../components/TablePagination.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listSalesFn } from '../../../server/functions/sales.ts'
 
 const searchSchema = z.object({
   page: z.number().int().min(1).default(1).catch(1),
+  pageSize: z.number().int().min(1).max(100).default(10).catch(10),
   locationId: z.string().uuid().optional().catch(undefined),
   status: z.enum(['completed', 'cancelled']).optional().catch(undefined),
   search: z.string().trim().min(1).optional().catch(undefined),
@@ -14,6 +17,7 @@ export const Route = createFileRoute('/_authed/sales/')({
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page,
+    pageSize: search.pageSize,
     locationId: search.locationId,
     status: search.status,
     search: search.search,
@@ -23,6 +27,7 @@ export const Route = createFileRoute('/_authed/sales/')({
       listSalesFn({
         data: {
           page: deps.page,
+          pageSize: deps.pageSize,
           locationId: deps.locationId,
           status: deps.status,
           search: deps.search,
@@ -40,7 +45,6 @@ function SalesPage() {
   const { search, locationId, status } = Route.useSearch()
   const navigate = Route.useNavigate()
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const storeLocations = locations.filter((l) => l.type === 'store')
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
@@ -93,20 +97,8 @@ function SalesPage() {
           to="/sales/new"
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 transition shadow-sm"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          + New Sale
+          <Plus className="w-4 h-4" />
+          New Sale
         </Link>
       </div>
 
@@ -260,41 +252,30 @@ function SalesPage() {
         </div>
 
         {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 bg-neutral-50 text-sm">
-            <span className="text-neutral-500">
-              Showing page <span className="font-medium">{page}</span> of{' '}
-              <span className="font-medium">{totalPages}</span> ({total} orders)
-            </span>
-            <div className="flex gap-1">
-              <button
-                disabled={page <= 1}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      page: Math.max(1, page - 1),
-                    }),
-                  })
-                }
-                className="px-3 py-1 rounded border border-neutral-300 bg-white text-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium hover:bg-neutral-100"
-              >
-                Previous
-              </button>
-              <button
-                disabled={page >= totalPages}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({ ...prev, page: page + 1 }),
-                  })
-                }
-                className="px-3 py-1 rounded border border-neutral-300 bg-white text-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium hover:bg-neutral-100"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="border-t border-neutral-200 bg-neutral-50 px-4">
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={(newPage) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  page: newPage,
+                }),
+              })
+            }
+            onPageSizeChange={(newPageSize) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  pageSize: newPageSize,
+                  page: 1,
+                }),
+              })
+            }
+          />
+        </div>
       </div>
     </div>
   )

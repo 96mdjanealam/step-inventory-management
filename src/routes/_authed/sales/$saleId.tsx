@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
+import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import { cancelSaleFn, getSaleFn } from '../../../server/functions/sales.ts'
 import { createReturnFn } from '../../../server/functions/returns.ts'
 
@@ -162,19 +163,7 @@ function SaleDetailPage() {
             to="/sales"
             className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
+            <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
             <div className="flex items-center gap-3">
@@ -239,19 +228,7 @@ function SaleDetailPage() {
       {sale.status === 'cancelled' && (
         <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm space-y-1">
           <div className="font-semibold flex items-center gap-2">
-            <svg
-              className="w-4 h-4 text-rose-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
             This order has been cancelled and stock returned to inventory.
           </div>
           <div className="text-xs text-rose-700">

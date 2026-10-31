@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { TablePagination } from '../../../components/TablePagination.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listStockMovementsFn } from '../../../server/functions/inventory.ts'
 import { listActivityLogsFn } from '../../../server/functions/activity-logs.ts'
@@ -7,6 +8,7 @@ import { listActivityLogsFn } from '../../../server/functions/activity-logs.ts'
 const searchSchema = z.object({
   tab: z.enum(['ledger', 'activity']).default('ledger').catch('ledger'),
   page: z.number().int().min(1).default(1).catch(1),
+  pageSize: z.number().int().min(1).max(100).default(10).catch(10),
   locationId: z.string().uuid().optional().catch(undefined),
   movementType: z
     .enum([
@@ -29,6 +31,7 @@ export const Route = createFileRoute('/_authed/audit/')({
   loaderDeps: ({ search }) => ({
     tab: search.tab,
     page: search.page,
+    pageSize: search.pageSize,
     locationId: search.locationId,
     movementType: search.movementType,
     search: search.search,
@@ -40,6 +43,7 @@ export const Route = createFileRoute('/_authed/audit/')({
       const activityData = await listActivityLogsFn({
         data: {
           page: deps.page,
+          pageSize: deps.pageSize,
           locationId: deps.locationId,
         },
       })
@@ -48,6 +52,7 @@ export const Route = createFileRoute('/_authed/audit/')({
       const ledgerData = await listStockMovementsFn({
         data: {
           page: deps.page,
+          pageSize: deps.pageSize,
           locationId: deps.locationId,
           type: deps.movementType,
           search: deps.search,
@@ -67,7 +72,6 @@ function AuditPage() {
   const total = tab === 'activity' ? activityData?.total ?? 0 : ledgerData?.total ?? 0
   const page = tab === 'activity' ? activityData?.page ?? 1 : ledgerData?.page ?? 1
   const pageSize = tab === 'activity' ? activityData?.pageSize ?? 20 : ledgerData?.pageSize ?? 20
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -391,41 +395,30 @@ function AuditPage() {
         )}
 
         {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 bg-neutral-50 text-sm">
-            <span className="text-neutral-500 text-xs">
-              Showing page <span className="font-medium">{page}</span> of{' '}
-              <span className="font-medium">{totalPages}</span> ({total} records)
-            </span>
-            <div className="flex gap-1">
-              <button
-                disabled={page <= 1}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      page: Math.max(1, page - 1),
-                    }),
-                  })
-                }
-                className="px-3 py-1 rounded border border-neutral-300 bg-white text-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium hover:bg-neutral-100"
-              >
-                Previous
-              </button>
-              <button
-                disabled={page >= totalPages}
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({ ...prev, page: page + 1 }),
-                  })
-                }
-                className="px-3 py-1 rounded border border-neutral-300 bg-white text-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium hover:bg-neutral-100"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="border-t border-neutral-200 bg-neutral-50 px-4">
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={(newPage) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  page: newPage,
+                }),
+              })
+            }
+            onPageSizeChange={(newPageSize) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  pageSize: newPageSize,
+                  page: 1,
+                }),
+              })
+            }
+          />
+        </div>
       </div>
     </div>
   )

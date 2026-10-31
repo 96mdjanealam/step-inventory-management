@@ -3,14 +3,18 @@ import {
   cancelSaleSchema,
   createSaleSchema,
   getSaleSchema,
+  getStoreInventorySchema,
   listSalesSchema,
+  listStoreInventoryPaginatedSchema,
 } from '../../lib/schemas/sale.ts'
 import { requireUser } from '../middleware/auth.ts'
 import {
   cancelSale,
   createSale,
   getSaleById,
+  getStoreInventoryForSale,
   listSales,
+  listStoreInventoryPaginated,
 } from '../services/sales.ts'
 
 export const createSaleFn = createServerFn({ method: 'POST' })
@@ -32,4 +36,14 @@ export const getSaleFn = createServerFn({ method: 'GET' })
   .middleware([requireUser])
   .validator(getSaleSchema)
   .handler(async ({ data }) => getSaleById(data.saleId))
+
+export const getStoreInventoryForSaleFn = createServerFn({ method: 'GET' })
+  .middleware([requireUser])
+  .validator(getStoreInventorySchema)
+  .handler(async ({ data }) => getStoreInventoryForSale(data.locationId))
+
+export const listStoreInventoryPaginatedFn = createServerFn({ method: 'GET' })
+  .middleware([requireUser])
+  .validator(listStoreInventoryPaginatedSchema)
+  .handler(async ({ data }) => listStoreInventoryPaginated(data))
 
