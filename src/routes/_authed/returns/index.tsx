@@ -105,10 +105,12 @@ function ReturnsPage() {
             <TableCard.Row isHeader>
               <TableCard.Head>Return #</TableCard.Head>
               <TableCard.Head>Original Order</TableCard.Head>
-              <TableCard.Head>Returned Item Details</TableCard.Head>
+              <TableCard.Head className="min-w-[280px]">
+                Returned Item Details
+              </TableCard.Head>
               <TableCard.Head>Date & Time</TableCard.Head>
               <TableCard.Head>Store Location</TableCard.Head>
-              <TableCard.Head>Reason</TableCard.Head>
+              <TableCard.Head className="min-w-[260px]">Reason</TableCard.Head>
               <TableCard.Head align="right">Refund Amount</TableCard.Head>
               <TableCard.Head>Authorized By</TableCard.Head>
               <TableCard.Head align="right">Actions</TableCard.Head>
@@ -121,87 +123,129 @@ function ReturnsPage() {
                 message="No customer returns found matching your filters."
               />
             ) : (
-              returns.map((ret) => (
-                <TableCard.Row key={ret.id}>
-                  <TableCard.Cell className="font-mono font-medium text-amber-700 whitespace-nowrap">
-                    {ret.returnNumber}
-                  </TableCard.Cell>
-                  <TableCard.Cell className="font-mono whitespace-nowrap">
-                    <Link
-                      to="/sales/$saleId"
-                      params={{ saleId: ret.saleId }}
-                      className="text-indigo-600 hover:underline"
-                    >
-                      {ret.saleOrderNumber}
-                    </Link>
-                  </TableCard.Cell>
-                  <TableCard.Cell>
-                    {ret.items && ret.items.length > 0 ? (
-                      <div className="flex flex-col gap-2">
-                        {ret.items.map((item, idx) => {
+              returns.map((ret) => {
+                const returnedItemsTooltip =
+                  ret.items && ret.items.length > 0
+                    ? ret.items
+                        .map((item) => {
                           const variantInfo = formatVariantInfo({
-                            attributes: item.attributes as Record<string, string>,
+                            attributes: item.attributes as Record<
+                              string,
+                              string
+                            >,
                             sku: item.sku,
                           })
+                          const variantStr = [
+                            variantInfo.title,
+                            variantInfo.subtitle,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')
+                          return `${item.productName} (${item.quantity} ${item.unit})${
+                            variantStr ? ` - ${variantStr}` : ''
+                          }`
+                        })
+                        .join('\n')
+                    : ''
 
-                          return (
-                            <div
-                              key={idx}
-                              className="text-xs"
-                            >
-                              <div className="font-semibold text-neutral-900">
-                                {item.productName}{' '}
-                                <span className="font-normal text-neutral-500">
-                                  ({item.quantity} {item.unit})
-                                </span>
-                              </div>
-                              <div className="text-neutral-700 font-medium">
-                                {variantInfo.title}
-                              </div>
-                              {variantInfo.subtitle && (
-                                <div className="text-neutral-400 font-mono text-[11px]">
-                                  {variantInfo.subtitle}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-neutral-400">—</span>
-                    )}
-                  </TableCard.Cell>
-                  <TableCard.Cell className="text-neutral-500 whitespace-nowrap">
-                    {new Date(ret.createdAt).toLocaleString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </TableCard.Cell>
-                  <TableCard.Cell className="font-medium text-neutral-900 whitespace-nowrap">
-                    {ret.locationName}
-                  </TableCard.Cell>
-                  <TableCard.Cell className="text-neutral-700 max-w-xs break-words leading-relaxed">
-                    {ret.reason}
-                  </TableCard.Cell>
-                  <TableCard.Cell align="right" className="font-semibold text-rose-600 whitespace-nowrap">
-                    -${Number(ret.totalRefundAmount).toFixed(2)}
-                  </TableCard.Cell>
-                  <TableCard.Cell className="text-neutral-700 whitespace-nowrap">
-                    {ret.processedByUsername || 'Staff'}
-                  </TableCard.Cell>
-                  <TableCard.Cell align="right" className="whitespace-nowrap">
-                    <TableActionLink
-                      to="/sales/$saleId"
-                      params={{ saleId: ret.saleId }}
+                return (
+                  <TableCard.Row key={ret.id}>
+                    <TableCard.Cell className="font-mono font-medium text-amber-700 whitespace-nowrap align-top">
+                      {ret.returnNumber}
+                    </TableCard.Cell>
+                    <TableCard.Cell className="font-mono whitespace-nowrap align-top">
+                      <Link
+                        to="/sales/$saleId"
+                        params={{ saleId: ret.saleId }}
+                        className="text-indigo-600 hover:underline"
+                      >
+                        {ret.saleOrderNumber}
+                      </Link>
+                    </TableCard.Cell>
+                    <TableCard.Cell
+                      className="min-w-[280px] max-w-md align-top"
+                      title={returnedItemsTooltip || undefined}
                     >
-                      View Sale Order
-                    </TableActionLink>
-                  </TableCard.Cell>
-                </TableCard.Row>
-              ))
+                      {ret.items && ret.items.length > 0 ? (
+                        <div className="line-clamp-3 text-xs leading-relaxed space-y-1">
+                          {ret.items.map((item, idx) => {
+                            const variantInfo = formatVariantInfo({
+                              attributes: item.attributes as Record<
+                                string,
+                                string
+                              >,
+                              sku: item.sku,
+                            })
+
+                            return (
+                              <div key={idx} className="text-xs">
+                                <div className="font-semibold text-neutral-900">
+                                  {item.productName}{' '}
+                                  <span className="font-normal text-neutral-500">
+                                    ({item.quantity} {item.unit})
+                                  </span>
+                                </div>
+                                {(variantInfo.title || variantInfo.subtitle) && (
+                                  <div className="text-neutral-600 text-[11px] leading-tight">
+                                    {variantInfo.title}
+                                    {variantInfo.subtitle && (
+                                      <span className="text-neutral-400 font-mono ml-1.5">
+                                        {variantInfo.subtitle}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-neutral-400">—</span>
+                      )}
+                    </TableCard.Cell>
+                    <TableCard.Cell className="text-neutral-500 whitespace-nowrap align-top">
+                      {new Date(ret.createdAt).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </TableCard.Cell>
+                    <TableCard.Cell className="font-medium text-neutral-900 whitespace-nowrap align-top">
+                      {ret.locationName}
+                    </TableCard.Cell>
+                    <TableCard.Cell
+                      className="text-neutral-700 min-w-[260px] max-w-md align-top"
+                      title={ret.reason || undefined}
+                    >
+                      <div className="line-clamp-3 text-xs leading-relaxed break-words">
+                        {ret.reason || '—'}
+                      </div>
+                    </TableCard.Cell>
+                    <TableCard.Cell
+                      align="right"
+                      className="font-semibold text-rose-600 whitespace-nowrap align-top"
+                    >
+                      -${Number(ret.totalRefundAmount).toFixed(2)}
+                    </TableCard.Cell>
+                    <TableCard.Cell className="text-neutral-700 whitespace-nowrap align-top">
+                      {ret.processedByUsername || 'Staff'}
+                    </TableCard.Cell>
+                    <TableCard.Cell
+                      align="right"
+                      className="whitespace-nowrap align-top"
+                    >
+                      <TableActionLink
+                        to="/sales/$saleId"
+                        params={{ saleId: ret.saleId }}
+                      >
+                        View Sale Order
+                      </TableActionLink>
+                    </TableCard.Cell>
+                  </TableCard.Row>
+                )
+              })
             )}
           </TableCard.Body>
         </TableCard.Table>
