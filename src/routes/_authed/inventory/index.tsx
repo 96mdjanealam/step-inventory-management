@@ -3,9 +3,16 @@ import { Link, createFileRoute, redirect, useRouter } from '@tanstack/react-rout
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import {
+  Button,
+  TableActionButton,
+  TableActionLink,
+} from '../../../components/Button.tsx'
+import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
 import { Select } from '../../../components/Select.tsx'
+import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { VariantSelect } from '../../../components/VariantSelect.tsx'
 import {
@@ -170,18 +177,29 @@ function InventoryPage() {
     [loaderData.activeProducts, selectedProductId],
   )
 
+  const stores = useMemo(() => {
+    let list = loaderData.locationsWithStock.filter((l) => l.type === 'store')
+    if (search) {
+      const q = search.toLowerCase()
+      list = list.filter(
+        (l) =>
+          l.name.toLowerCase().includes(q) ||
+          (l.address && l.address.toLowerCase().includes(q)) ||
+          (l.phone && l.phone.toLowerCase().includes(q)),
+      )
+    }
+    return list
+  }, [loaderData.locationsWithStock, search])
+
   // ===================== HANDLERS: OVERVIEW =====================
-  function handleOverviewSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const val = String(
-      new FormData(event.currentTarget).get('search') ?? '',
-    ).trim()
+  function handleOverviewSearchQuery(val: string) {
     navigate({
       search: (prev) => ({
         ...prev,
         page: 1,
         search: val || undefined,
       }),
+      replace: true,
     })
   }
 
@@ -293,11 +311,7 @@ function InventoryPage() {
   }
 
   // ===================== HANDLERS: STOCK =====================
-  function handleStockSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const val = String(
-      new FormData(event.currentTarget).get('search') ?? '',
-    ).trim()
+  function handleStockSearchQuery(val: string) {
     navigate({
       search: (prev) => ({
         ...prev,
@@ -509,23 +523,23 @@ function InventoryPage() {
     const isDamagedLocation = loc?.type === 'damaged'
 
     return (
-      <main className="mx-auto max-w-6xl p-6">
+      <main className="mx-auto max-w-7xl p-6 space-y-6">
         {/* Navigation Breadcrumb */}
-        <div className="mb-4">
+        <div>
           <Link
             to="/inventory"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-black"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
           >
             ← Back to Locations Overview
           </Link>
         </div>
 
         {/* Location Header Banner */}
-        <div className="mb-6 rounded-lg border bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
                   {loc ? loc.name : 'Unknown Location'}
                 </h1>
                 {loc ? (
@@ -561,7 +575,7 @@ function InventoryPage() {
               </div>
 
               {loc?.address || loc?.phone ? (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-neutral-500">
                   {loc.address ? `Address: ${loc.address}` : ''}
                   {loc.address && loc.phone ? ' · ' : ''}
                   {loc.phone ? `Phone: ${loc.phone}` : ''}
@@ -572,17 +586,15 @@ function InventoryPage() {
             {/* Quick Action Buttons */}
             {!isDamagedLocation ? (
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
+                <Button
                   onClick={openInflowModal}
-                  className="inline-flex items-center gap-1.5 rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                  leftIcon={<Plus className="w-4 h-4" />}
                 >
-                  <Plus className="w-4 h-4" />
                   Receive Stock
-                </button>
+                </Button>
               </div>
             ) : (
-              <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                 Damaged stock intake and resolution are managed via the{' '}
                 <Link to="/damage" className="font-semibold underline">
                   Damaged Stock Module
@@ -593,25 +605,17 @@ function InventoryPage() {
           </div>
         </div>
 
-        {/* Search Bar for Location's Inventory */}
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <form onSubmit={handleStockSearch} className="flex flex-1 gap-2">
-            <input
-              name="search"
-              defaultValue={search ?? ''}
-              placeholder="Search by product name or SKU in this location..."
-              className="flex-1 rounded border px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded bg-black px-3 py-2 text-sm text-white hover:bg-gray-800"
-            >
-              Search
-            </button>
-          </form>
+        {/* Search and Filters for Location's Inventory */}
+        <FilterToolbar>
+          <SearchInput
+            defaultValue={search ?? ''}
+            placeholder="Search by product name or SKU in this location..."
+            onSearch={handleStockSearchQuery}
+            onClear={() => handleStockSearchQuery('')}
+          />
 
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+          <FilterToolbar.Right>
+            <label className="flex items-center gap-2 text-sm text-neutral-600 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={!!includeZeroQuantity}
@@ -624,157 +628,141 @@ function InventoryPage() {
                     }),
                   })
                 }
-                className="rounded border-gray-300"
+                className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
               />
               Show 0-balance items
             </label>
-
-            {search ? (
-              <Link
-                to="/inventory"
-                search={(prev) => ({ ...prev, search: undefined, page: 1 })}
-                className="text-xs text-gray-500 underline"
-              >
-                Clear search filter
-              </Link>
-            ) : null}
-          </div>
-        </div>
+          </FilterToolbar.Right>
+        </FilterToolbar>
 
         {/* Inventory Items Table */}
-        {items.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-16 text-center">
-            <p className="text-base font-medium text-gray-700">
-              No stock balances at this location
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
-              {search
-                ? 'No items matched your search query.'
-                : 'Click "+ Receive Stock" above to record incoming inventory.'}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded border bg-white shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs font-semibold text-gray-600 uppercase">
-                <tr>
-                  <th className="px-4 py-3">Product Name</th>
-                  <th className="px-4 py-3">SKU & Attributes</th>
-                  <th className="px-4 py-3">Quantity</th>
-                  <th className="px-4 py-3">Unit</th>
-                  <th className="px-4 py-3">Price</th>
-                  <th className="px-4 py-3">Last Updated</th>
-                  {!isDamagedLocation ? (
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {items.map((item) => {
+        <TableCard>
+          <TableCard.Table>
+            <TableCard.Header>
+              <TableCard.Row isHeader>
+                <TableCard.Head>Product Name</TableCard.Head>
+                <TableCard.Head>SKU & Attributes</TableCard.Head>
+                <TableCard.Head align="right">Quantity</TableCard.Head>
+                <TableCard.Head>Unit</TableCard.Head>
+                <TableCard.Head>Price</TableCard.Head>
+                <TableCard.Head>Last Updated</TableCard.Head>
+                {!isDamagedLocation ? (
+                  <TableCard.Head align="right">Actions</TableCard.Head>
+                ) : null}
+              </TableCard.Row>
+            </TableCard.Header>
+            <TableCard.Body>
+              {items.length === 0 ? (
+                <TableCard.Empty
+                  colSpan={!isDamagedLocation ? 7 : 6}
+                  message={
+                    search
+                      ? 'No items matched your search query.'
+                      : 'No stock balances at this location.'
+                  }
+                />
+              ) : (
+                items.map((item) => {
                   return (
-                    <tr key={item.id} className="hover:bg-gray-50/60">
-                      <td className="px-4 py-3">
+                    <TableCard.Row key={item.id}>
+                      <TableCard.Cell>
                         <Link
                           to="/products/$productId"
                           params={{ productId: item.product.id }}
-                          className="font-semibold text-gray-900 hover:underline block"
+                          className="font-semibold text-neutral-900 hover:underline block"
                         >
                           {item.product.name}
                         </Link>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-neutral-400">
                           {item.product.category}
                         </div>
-                      </td>
+                      </TableCard.Cell>
 
-                      <td className="px-4 py-3">
+                      <TableCard.Cell>
                         <VariantDisplay
                           variant={{
                             attributes: item.variant.attributes as Record<string, string>,
                             sku: item.variant.sku,
                           }}
                         />
-                      </td>
+                      </TableCard.Cell>
 
-                      <td className="px-4 py-3">
-                        <span className="text-base font-bold text-gray-900">
+                      <TableCard.Cell align="right" className="whitespace-nowrap">
+                        <span className="text-base font-bold text-neutral-900">
                           {item.quantity}
                         </span>
-                      </td>
+                      </TableCard.Cell>
 
-                      <td className="px-4 py-3">
-                        <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                      <TableCard.Cell className="whitespace-nowrap">
+                        <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                           {item.product.unit}
                         </span>
-                      </td>
+                      </TableCard.Cell>
 
-                      <td className="px-4 py-3 text-xs text-gray-600">
+                      <TableCard.Cell className="text-xs text-neutral-600 whitespace-nowrap">
                         <div>${item.variant.discountedPrice}</div>
                         {item.variant.regularPrice &&
                         item.variant.regularPrice !==
                           item.variant.discountedPrice ? (
-                          <div className="text-gray-400 line-through">
+                          <div className="text-neutral-400 line-through">
                             ${item.variant.regularPrice}
                           </div>
                         ) : null}
-                      </td>
+                      </TableCard.Cell>
 
-                      <td className="px-4 py-3 text-xs text-gray-500">
+                      <TableCard.Cell className="text-xs text-neutral-500 whitespace-nowrap">
                         {new Date(item.updatedAt).toLocaleDateString()}
-                      </td>
+                      </TableCard.Cell>
 
                       {!isDamagedLocation ? (
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-3">
-                            <button
-                              type="button"
+                        <TableCard.Cell align="right" className="whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <TableActionButton
+                              variant="default"
                               onClick={() => {
                                 setAdjustError(null)
                                 setAdjustingItem(item)
                               }}
-                              className="text-xs font-medium text-blue-600 hover:underline"
                             >
                               Adjust Stock
-                            </button>
-                            <button
-                              type="button"
+                            </TableActionButton>
+                            <TableActionButton
+                              variant="default"
                               onClick={() => {
                                 setTransferError(null)
                                 setTransferDestinationId('')
                                 setTransferringItem(item)
                               }}
-                              className="text-xs font-medium text-purple-600 hover:underline"
                             >
                               Transfer Stock
-                            </button>
+                            </TableActionButton>
                           </div>
-                        </td>
+                        </TableCard.Cell>
                       ) : null}
-                    </tr>
+                    </TableCard.Row>
                   )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination */}
-        <div className="mt-4">
-          <TablePagination
-            page={page}
-            pageSize={pageSize}
-            total={total}
-            onPageChange={(newPage) =>
-              navigate({
-                search: (prev) => ({ ...prev, page: newPage }),
-              })
-            }
-            onPageSizeChange={(newPageSize) =>
-              navigate({
-                search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
-              })
-            }
-          />
-        </div>
+                })
+              )}
+            </TableCard.Body>
+          </TableCard.Table>
+          <TableCard.Footer>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={(newPage) =>
+                navigate({
+                  search: (prev) => ({ ...prev, page: newPage }),
+                })
+              }
+              onPageSizeChange={(newPageSize) =>
+                navigate({
+                  search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+                })
+              }
+            />
+          </TableCard.Footer>
+        </TableCard>
 
         {/* MODAL 1: RECEIVE STOCK (INFLOW) */}
         {showInflowModal ? (
@@ -874,20 +862,19 @@ function InventoryPage() {
                 </label>
 
                 <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => setShowInflowModal(false)}
-                    className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    disabled={inflowPending || !selectedVariantId}
-                    className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+                    disabled={!selectedVariantId}
+                    isLoading={inflowPending}
                   >
-                    {inflowPending ? 'Receiving...' : 'Record Inflow'}
-                  </button>
+                    Record Inflow
+                  </Button>
                 </div>
               </form>
             </div>
@@ -970,20 +957,18 @@ function InventoryPage() {
                 </label>
 
                 <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => setAdjustingItem(null)}
-                    className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    disabled={adjustPending}
-                    className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+                    isLoading={adjustPending}
                   >
-                    {adjustPending ? 'Saving...' : 'Confirm Adjustment'}
-                  </button>
+                    Confirm Adjustment
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1069,20 +1054,18 @@ function InventoryPage() {
                 </label>
 
                 <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => setTransferringItem(null)}
-                    className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    disabled={transferPending}
-                    className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+                    isLoading={transferPending}
                   >
-                    {transferPending ? 'Transferring...' : 'Send Transfer'}
-                  </button>
+                    Send Transfer
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1098,35 +1081,31 @@ function InventoryPage() {
   const facilities = loaderData.locationsWithStock.filter(
     (l) => l.type !== 'store',
   )
-  const stores = loaderData.locationsWithStock.filter((l) => l.type === 'store')
-
   const warehouseLoc = facilities.find((l) => l.type === 'warehouse')
   const damagedLoc = facilities.find((l) => l.type === 'damaged')
 
   return (
-    <main className="mx-auto max-w-6xl p-6">
+    <main className="mx-auto max-w-7xl p-6 space-y-6">
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
             Inventory & Locations
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-neutral-500 mt-1">
             Select a facility or retail store to view and manage stock balances
           </p>
         </div>
         {isAdmin ? (
-          <button
-            type="button"
+          <Button
             onClick={() => {
               setCreateStoreError(null)
               setShowCreateStoreModal(true)
             }}
-            className="inline-flex items-center gap-1.5 rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            leftIcon={<Plus className="w-4 h-4" />}
           >
-            <Plus className="w-4 h-4" />
             New Store
-          </button>
+          </Button>
         ) : null}
       </div>
 
@@ -1244,86 +1223,63 @@ function InventoryPage() {
       </div>
 
       {/* SECTION 2: RETAIL STORES & BRANCHES */}
-      <div>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">Retail Stores</h2>
-            <p className="text-xs text-gray-500">
-              Company-owned retail outlets and franchise locations
-            </p>
-          </div>
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-neutral-900">Retail Stores</h2>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            Company-owned retail outlets and franchise locations
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Search */}
-            <form onSubmit={handleOverviewSearch} className="flex gap-1.5">
-              <input
-                name="search"
-                defaultValue={search ?? ''}
-                placeholder="Search store name or address..."
-                className="rounded border px-3 py-1.5 text-xs"
-              />
-              <button
-                type="submit"
-                className="rounded bg-black px-3 py-1.5 text-xs text-white hover:bg-gray-800"
-              >
-                Search
-              </button>
-            </form>
+        {/* Filter Toolbar matching the rest of the application */}
+        <FilterToolbar>
+          <SearchInput
+            defaultValue={search ?? ''}
+            placeholder="Search store name, address, or phone..."
+            debounceMs={300}
+            onSearch={handleOverviewSearchQuery}
+            onClear={() => handleOverviewSearchQuery('')}
+          />
 
-            {/* Filter Store Type */}
+          <FilterToolbar.Right>
             <Select
               value={storeType ?? ''}
               onChange={(e) => handleFilterStoreType(e.target.value)}
-              sizeVariant="sm"
+              className="w-full sm:w-48"
             >
               <option value="">All Store Types</option>
               <option value="ownstore">Own Stores</option>
               <option value="franchise">Franchise Stores</option>
             </Select>
-          </div>
-        </div>
+          </FilterToolbar.Right>
+        </FilterToolbar>
 
         {/* Store Grid / Table */}
-        {stores.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center">
-            <p className="text-sm font-medium text-gray-600">
-              No retail stores found
-            </p>
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setCreateStoreError(null)
-                  setShowCreateStoreModal(true)
-                }}
-                className="mt-3 text-xs font-semibold text-black underline"
-              >
-                + Create your first store
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs font-semibold text-gray-600 uppercase">
-                <tr>
-                  <th className="px-4 py-3">Store Name</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Address & Phone</th>
-                  <th className="px-4 py-3">Total Quantity</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {stores.map((store) => (
-                  <tr
+        <TableCard>
+          <TableCard.Table>
+            <TableCard.Header>
+              <TableCard.Row isHeader>
+                <TableCard.Head>Store Name</TableCard.Head>
+                <TableCard.Head>Type</TableCard.Head>
+                <TableCard.Head>Address & Phone</TableCard.Head>
+                <TableCard.Head>Total Quantity</TableCard.Head>
+                <TableCard.Head>Status</TableCard.Head>
+                <TableCard.Head align="right">Actions</TableCard.Head>
+              </TableCard.Row>
+            </TableCard.Header>
+            <TableCard.Body>
+              {stores.length === 0 ? (
+                <TableCard.Empty
+                  colSpan={6}
+                  message="No retail stores found."
+                />
+              ) : (
+                stores.map((store) => (
+                  <TableCard.Row
                     key={store.id}
-                    className={`hover:bg-gray-50/60 ${
-                      !store.isActive ? 'bg-gray-50/40 opacity-75' : ''
-                    }`}
+                    className={!store.isActive ? 'bg-neutral-50/40 opacity-75' : ''}
                   >
-                    <td className="px-4 py-3 font-semibold text-gray-900">
+                    <TableCard.Cell className="font-semibold text-neutral-900">
                       <Link
                         to="/inventory"
                         search={{ locationId: store.id }}
@@ -1331,9 +1287,9 @@ function InventoryPage() {
                       >
                         {store.name}
                       </Link>
-                    </td>
+                    </TableCard.Cell>
 
-                    <td className="px-4 py-3">
+                    <TableCard.Cell className="whitespace-nowrap">
                       <span
                         className={`rounded px-2 py-0.5 text-xs font-semibold ${
                           store.storeType === 'franchise'
@@ -1345,50 +1301,50 @@ function InventoryPage() {
                           ? 'Franchise'
                           : 'Own Store'}
                       </span>
-                    </td>
+                    </TableCard.Cell>
 
-                    <td className="px-4 py-3 text-xs text-gray-600">
+                    <TableCard.Cell className="text-xs text-neutral-600 max-w-xs break-words leading-relaxed">
                       <div>{store.address || '—'}</div>
                       {store.phone ? (
-                        <div className="text-gray-400">{store.phone}</div>
+                        <div className="text-neutral-400 mt-0.5">{store.phone}</div>
                       ) : null}
-                    </td>
+                    </TableCard.Cell>
 
-                    <td className="px-4 py-3">
-                      <span className="font-bold text-gray-900">
+                    <TableCard.Cell className="whitespace-nowrap">
+                      <span className="font-bold text-neutral-900">
                         {store.totalQuantity}
                       </span>
-                      <span className="ml-1 text-xs text-gray-500">
+                      <span className="ml-1 text-xs text-neutral-500">
                         ({store.itemCount} items)
                       </span>
-                    </td>
+                    </TableCard.Cell>
 
-                    <td className="px-4 py-3">
+                    <TableCard.Cell className="whitespace-nowrap">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           store.isActive
-                            ? 'bg-green-50 text-green-700 ring-1 ring-green-600/20'
-                            : 'bg-gray-100 text-gray-600 ring-1 ring-gray-500/20'
+                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
+                            : 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-500/20'
                         }`}
                       >
                         {store.isActive ? 'Active' : 'Inactive'}
                       </span>
-                    </td>
+                    </TableCard.Cell>
 
-                    <td className="px-4 py-3 text-right">
+                    <TableCard.Cell align="right" className="whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
-                        <Link
+                        <TableActionLink
                           to="/inventory"
                           search={{ locationId: store.id }}
-                          className="rounded bg-black px-2.5 py-1 text-xs font-semibold text-white hover:bg-gray-800"
+                          variant="primary"
                         >
                           View Stock
-                        </Link>
+                        </TableActionLink>
 
                         {isAdmin ? (
                           <>
-                            <button
-                              type="button"
+                            <TableActionButton
+                              variant="outline"
                               onClick={() => {
                                 setEditError(null)
                                 setEditingLocation({
@@ -1398,33 +1354,27 @@ function InventoryPage() {
                                   phone: store.phone,
                                 })
                               }}
-                              className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
                             >
                               Edit
-                            </button>
+                            </TableActionButton>
 
-                            <button
-                              type="button"
+                            <TableActionButton
+                              variant={store.isActive ? 'danger' : 'success'}
                               disabled={actionPendingId === store.id}
                               onClick={() => handleToggleStatus(store)}
-                              className={`rounded px-2 py-1 text-xs font-medium ${
-                                store.isActive
-                                  ? 'text-red-600 hover:bg-red-50'
-                                  : 'text-green-700 hover:bg-green-50'
-                              } disabled:opacity-50`}
                             >
                               {store.isActive ? 'Deactivate' : 'Activate'}
-                            </button>
+                            </TableActionButton>
                           </>
                         ) : null}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    </TableCard.Cell>
+                  </TableCard.Row>
+                ))
+              )}
+            </TableCard.Body>
+          </TableCard.Table>
+        </TableCard>
       </div>
 
       {/* OVERVIEW MODAL 1: CREATE STORE */}
@@ -1485,20 +1435,18 @@ function InventoryPage() {
               </label>
 
               <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   onClick={() => setShowCreateStoreModal(false)}
-                  className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={createStorePending}
-                  className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+                  isLoading={createStorePending}
                 >
-                  {createStorePending ? 'Creating...' : 'Create Store'}
-                </button>
+                  Create Store
+                </Button>
               </div>
             </form>
           </div>
@@ -1552,20 +1500,18 @@ function InventoryPage() {
               </label>
 
               <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   onClick={() => setEditingLocation(null)}
-                  className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={editPending}
-                  className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+                  isLoading={editPending}
                 >
-                  {editPending ? 'Saving...' : 'Save Changes'}
-                </button>
+                  Save Changes
+                </Button>
               </div>
             </form>
           </div>

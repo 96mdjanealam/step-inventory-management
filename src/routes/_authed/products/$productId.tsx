@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon, Plus } from 'lucide-react'
+import { Button, LinkButton, TableActionButton } from '../../../components/Button.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import {
@@ -306,42 +307,36 @@ function ProductDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
+          <LinkButton
             to="/products"
-            className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            variant="secondary"
+            size="sm"
           >
             ← Back to products
-          </Link>
+          </LinkButton>
           {isAdmin ? (
-            <button
-              type="button"
+            <Button
+              variant={product.isActive ? 'danger' : 'primary'}
+              size="sm"
               disabled={actionPending}
+              isLoading={actionPending}
               onClick={handleArchiveToggle}
-              className={`rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 ${
-                product.isActive
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-blue-600 hover:bg-blue-700'
-              }`}
             >
-              {actionPending
-                ? 'Processing...'
-                : product.isActive
-                  ? 'Archive'
-                  : 'Restore'}
-            </button>
+              {product.isActive ? 'Archive' : 'Restore'}
+            </Button>
           ) : null}
-          <button
-            type="button"
+          <Button
+            variant={isEditing ? 'secondary' : 'primary'}
+            size="sm"
             onClick={() => {
               if (isEditing) {
                 setEditImages(product.images ?? [])
               }
               setIsEditing(!isEditing)
             }}
-            className="rounded bg-black px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800"
           >
             {isEditing ? 'Cancel edit' : 'Edit details'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -562,14 +557,13 @@ function ProductDetailPage() {
               Manage variants, photos, SKUs, dynamic attributes, and pricing.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={openAddVariant}
-            className="inline-flex items-center gap-1.5 rounded bg-black px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800"
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
           >
-            <Plus className="w-3.5 h-3.5" />
             Add variant
-          </button>
+          </Button>
         </div>
 
         <div className="overflow-x-auto rounded border border-gray-200">
@@ -667,22 +661,18 @@ function ProductDetailPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
+                        <TableActionButton
+                          variant="outline"
                           onClick={() => openEditVariant(v)}
-                          className="text-xs font-medium text-blue-600 hover:underline"
                         >
                           Edit
-                        </button>
-                        <button
-                          type="button"
+                        </TableActionButton>
+                        <TableActionButton
+                          variant={v.isActive ? 'danger' : 'success'}
                           onClick={() => handleToggleVariant(v)}
-                          className={`text-xs font-medium hover:underline ${
-                            v.isActive ? 'text-red-600' : 'text-green-600'
-                          }`}
                         >
                           {v.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
+                        </TableActionButton>
                       </div>
                     </td>
                   </tr>
@@ -817,20 +807,20 @@ function ProductDetailPage() {
               </label>
 
               <div className="mt-4 flex justify-end gap-2 border-t pt-3">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setShowAddVariant(false)}
-                  className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={variantPending}
-                  className="rounded bg-black px-4 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                  size="sm"
+                  isLoading={variantPending}
                 >
-                  {variantPending ? 'Saving...' : 'Save variant'}
-                </button>
+                  Save variant
+                </Button>
               </div>
             </form>
           </div>

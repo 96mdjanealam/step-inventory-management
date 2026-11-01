@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { Button } from '../../../components/Button.tsx'
 import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import { cancelSaleFn, getSaleFn } from '../../../server/functions/sales.ts'
 import { createReturnFn } from '../../../server/functions/returns.ts'
@@ -193,35 +194,35 @@ function SaleDetailPage() {
 
         <div className="flex items-center gap-2">
           {sale.status === 'completed' && returnableSummary.totalReturnableItems > 0 && (
-            <button
+            <Button
+              variant="secondary"
               onClick={() => {
                 setError(null)
                 setShowReturnModal(true)
               }}
-              className="px-3.5 py-2 text-sm font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition shadow-xs"
             >
               Process Return
-            </button>
+            </Button>
           )}
 
           {sale.status === 'completed' && (
-            <button
+            <Button
+              variant="danger"
               onClick={() => {
                 setError(null)
                 setShowCancelModal(true)
               }}
-              className="px-3.5 py-2 text-sm font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition"
             >
               Cancel Order
-            </button>
+            </Button>
           )}
 
-          <button
+          <Button
+            variant="secondary"
             onClick={() => window.print()}
-            className="px-3.5 py-2 text-sm font-medium text-neutral-700 bg-white hover:bg-neutral-50 border border-neutral-200 rounded-lg transition"
           >
             Print Receipt
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -455,21 +456,21 @@ function SaleDetailPage() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   disabled={cancelPending}
                   onClick={() => setShowCancelModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-lg transition"
                 >
                   Nevermind
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={cancelPending || cancelReason.trim().length < 3}
-                  className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-lg transition shadow-sm"
+                  variant="danger"
+                  disabled={cancelReason.trim().length < 3}
+                  isLoading={cancelPending}
                 >
-                  {cancelPending ? 'Cancelling...' : 'Confirm Order Cancellation'}
-                </button>
+                  Confirm Order Cancellation
+                </Button>
               </div>
             </form>
           </div>
@@ -577,25 +578,23 @@ function SaleDetailPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     disabled={returnPending}
                     onClick={() => setShowReturnModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-lg transition"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
                     disabled={
-                      returnPending ||
                       Number(returnRefundTotal) <= 0 ||
                       returnReason.trim().length < 3
                     }
-                    className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg transition shadow-sm"
+                    isLoading={returnPending}
                   >
-                    {returnPending ? 'Processing...' : 'Authorize Refund'}
-                  </button>
+                    Authorize Refund
+                  </Button>
                 </div>
               </div>
             </form>

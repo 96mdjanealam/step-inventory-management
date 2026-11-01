@@ -3,7 +3,10 @@ import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { Button, TableActionButton } from '../../../components/Button.tsx'
+import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { Select } from '../../../components/Select.tsx'
+import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import {
   createUserFn,
@@ -82,11 +85,7 @@ function UsersPage() {
     )
   }
 
-  function handleSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const value = String(
-      new FormData(event.currentTarget).get('search') ?? '',
-    ).trim()
+  function handleSearchQuery(value: string) {
     navigate({
       search: (prev) => ({
         ...prev,
@@ -220,106 +219,96 @@ function UsersPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <main className="mx-auto max-w-7xl p-6 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">User Management</h1>
+          <p className="text-sm text-neutral-500 mt-1">
             Create and manage staff accounts and role permissions
           </p>
         </div>
-        <button
-          type="button"
+        <Button
           onClick={() => {
             setCreateError(null)
             setShowCreateModal(true)
           }}
-          className="inline-flex items-center gap-1.5 rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
+          leftIcon={<Plus className="w-4 h-4" />}
         >
-          <Plus className="w-4 h-4" />
           New User
-        </button>
+        </Button>
       </div>
 
       {actionError ? (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
           {actionError}
         </div>
       ) : null}
 
       {/* Filter and Search Bar */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <form onSubmit={handleSearch} className="flex flex-1 gap-2">
-          <input
-            name="search"
-            defaultValue={search ?? ''}
-            placeholder="Search by email or username"
-            className="flex-1 rounded border px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            className="rounded bg-black px-3 py-2 text-sm text-white hover:bg-gray-800"
-          >
-            Search
-          </button>
-        </form>
+      <FilterToolbar>
+        <SearchInput
+          defaultValue={search ?? ''}
+          placeholder="Search by email or username..."
+          onSearch={handleSearchQuery}
+          onClear={() => handleSearchQuery('')}
+        />
 
-        <div className="flex items-center gap-4">
+        <FilterToolbar.Right>
           <Select
             value={role ?? ''}
             onChange={(e) => handleRoleFilter(e.target.value)}
-            sizeVariant="sm"
+            className="w-full sm:w-44"
           >
             <option value="">All Roles</option>
             <option value="admin">Admins only</option>
             <option value="employee">Employees only</option>
           </Select>
 
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-600 select-none">
             <input
               type="checkbox"
               checked={Boolean(includeInactive)}
               onChange={(e) => handleToggleInactive(e.target.checked)}
-              className="rounded border-gray-300"
+              className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
             />
             Show inactive
           </label>
-        </div>
-      </div>
+        </FilterToolbar.Right>
+      </FilterToolbar>
 
       {/* Users Table */}
-      {items.length === 0 ? (
-        <p className="py-8 text-center text-gray-500">No users found.</p>
-      ) : (
-        <div className="overflow-x-auto rounded border">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b bg-gray-50 text-xs text-gray-700 uppercase">
-              <tr>
-                <th className="px-4 py-3">User / Email</th>
-                <th className="px-4 py-3">Username</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map((u) => {
+      <TableCard>
+        <TableCard.Table>
+          <TableCard.Header>
+            <TableCard.Row isHeader>
+              <TableCard.Head>User / Email</TableCard.Head>
+              <TableCard.Head>Username</TableCard.Head>
+              <TableCard.Head>Role</TableCard.Head>
+              <TableCard.Head>Status</TableCard.Head>
+              <TableCard.Head>Created</TableCard.Head>
+              <TableCard.Head align="right">Actions</TableCard.Head>
+            </TableCard.Row>
+          </TableCard.Header>
+          <TableCard.Body>
+            {items.length === 0 ? (
+              <TableCard.Empty colSpan={6} message="No users found." />
+            ) : (
+              items.map((u) => {
                 const isSelf = u.id === user.id
                 return (
-                  <tr key={u.id} className="hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium">
+                  <TableCard.Row key={u.id}>
+                    <TableCard.Cell className="font-medium text-neutral-900">
                       {u.email ?? 'No email'}
                       {isSelf ? (
-                        <span className="ml-2 rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">
+                        <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600 font-normal">
                           You
                         </span>
                       ) : null}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    </TableCard.Cell>
+                    <TableCard.Cell className="text-neutral-600">
                       {u.username ?? '—'}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCard.Cell>
+                    <TableCard.Cell>
                       <Select
                         value={u.role}
                         disabled={actionPendingId === u.id || isSelf}
@@ -334,67 +323,59 @@ function UsersPage() {
                         <option value="employee">Employee</option>
                         <option value="admin">Admin</option>
                       </Select>
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCard.Cell>
+                    <TableCard.Cell>
                       {u.isActive ? (
-                        <span className="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                        <span className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
                           Inactive
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
+                    </TableCard.Cell>
+                    <TableCard.Cell className="text-xs text-neutral-500 whitespace-nowrap">
                       {new Date(u.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </TableCard.Cell>
+                    <TableCard.Cell align="right" className="whitespace-nowrap">
                       {!isSelf ? (
-                        <button
-                          type="button"
+                        <TableActionButton
+                          variant={u.isActive ? 'danger' : 'success'}
                           disabled={actionPendingId === u.id}
+                          isLoading={actionPendingId === u.id}
                           onClick={() => handleToggleStatus(u)}
-                          className={`text-xs hover:underline disabled:opacity-50 ${
-                            u.isActive ? 'text-red-600' : 'text-blue-600'
-                          }`}
                         >
-                          {actionPendingId === u.id
-                            ? 'Processing...'
-                            : u.isActive
-                              ? 'Deactivate'
-                              : 'Activate'}
-                        </button>
+                          {u.isActive ? 'Deactivate' : 'Activate'}
+                        </TableActionButton>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-neutral-400">—</span>
                       )}
-                    </td>
-                  </tr>
+                    </TableCard.Cell>
+                  </TableCard.Row>
                 )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Pagination */}
-      <div className="mt-4">
-        <TablePagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={(newPage) =>
-            navigate({
-              search: (prev) => ({ ...prev, page: newPage }),
-            })
-          }
-          onPageSizeChange={(newPageSize) =>
-            navigate({
-              search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
-            })
-          }
-        />
-      </div>
+              })
+            )}
+          </TableCard.Body>
+        </TableCard.Table>
+        <TableCard.Footer>
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={(newPage) =>
+              navigate({
+                search: (prev) => ({ ...prev, page: newPage }),
+              })
+            }
+            onPageSizeChange={(newPageSize) =>
+              navigate({
+                search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+              })
+            }
+          />
+        </TableCard.Footer>
+      </TableCard>
 
       {/* Create User Modal */}
       {showCreateModal ? (
@@ -453,20 +434,18 @@ function UsersPage() {
               </label>
 
               <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   onClick={() => setShowCreateModal(false)}
-                  className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={createPending}
-                  className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+                  isLoading={createPending}
                 >
-                  {createPending ? 'Creating...' : 'Create account'}
-                </button>
+                  Create account
+                </Button>
               </div>
             </form>
           </div>

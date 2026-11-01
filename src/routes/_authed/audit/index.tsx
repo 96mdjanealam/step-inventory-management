@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { Select } from '../../../components/Select.tsx'
+import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
@@ -76,10 +78,7 @@ function AuditPage() {
   const page = tab === 'activity' ? activityData?.page ?? 1 : ledgerData?.page ?? 1
   const pageSize = tab === 'activity' ? activityData?.pageSize ?? 20 : ledgerData?.pageSize ?? 20
 
-  function handleSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const query = String(new FormData(form).get('search') ?? '').trim()
+  function handleSearchQuery(query: string) {
     navigate({
       search: (prev) => ({
         ...prev,
@@ -156,45 +155,22 @@ function AuditPage() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-col md:flex-row gap-3 bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+      <FilterToolbar>
         {tab === 'ledger' && (
-          <form onSubmit={handleSearch} className="flex-1 flex gap-2">
-            <input
-              type="text"
-              name="search"
-              defaultValue={search || ''}
-              placeholder="Search product, SKU, reference #, or reason..."
-              className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="px-3.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-sm font-medium transition"
-            >
-              Search
-            </button>
-            {search && (
-              <button
-                type="button"
-                onClick={() =>
-                  navigate({
-                    search: (prev) => ({ ...prev, search: undefined, page: 1 }),
-                  })
-                }
-                className="px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-900"
-              >
-                Clear
-              </button>
-            )}
-          </form>
+          <SearchInput
+            defaultValue={search || ''}
+            placeholder="Search product, SKU, reference #, or reason..."
+            onSearch={handleSearchQuery}
+            onClear={() => handleSearchQuery('')}
+          />
         )}
 
-        <div className="flex flex-wrap gap-2 items-center">
+        <FilterToolbar.Right>
           {tab === 'ledger' && (
             <Select
               value={movementType || ''}
               onChange={handleTypeFilter}
-              sizeVariant="sm"
-              className="capitalize"
+              className="w-full sm:w-48 capitalize"
             >
               <option value="">All Movement Types</option>
               <option value="inflow">Inflow</option>
@@ -221,180 +197,174 @@ function AuditPage() {
             }
             placeholder="All Locations"
             clearable
-            className="w-56"
+            className="w-full sm:w-64"
           />
-        </div>
-      </div>
+        </FilterToolbar.Right>
+      </FilterToolbar>
 
       {/* Main Table */}
-      <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+      <TableCard>
         {tab === 'ledger' && ledgerData && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-neutral-600">
-              <thead className="bg-neutral-50 text-neutral-900 font-semibold border-b border-neutral-200">
-                <tr>
-                  <th className="py-3 px-4">Date & Time</th>
-                  <th className="py-3 px-4 text-center">Type</th>
-                  <th className="py-3 px-4">Product & SKU</th>
-                  <th className="py-3 px-4 text-right">Quantity</th>
-                  <th className="py-3 px-4">Origin / Destination</th>
-                  <th className="py-3 px-4">Reference</th>
-                  <th className="py-3 px-4">Reason / Notes</th>
-                  <th className="py-3 px-4">Operator</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {ledgerData.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-neutral-400">
-                      No stock movements recorded matching your filters.
-                    </td>
-                  </tr>
-                ) : (
-                  ledgerData.items.map((m) => {
-                    const badgeStyles: Record<string, string> = {
-                      inflow: 'bg-blue-100 text-blue-800',
-                      transfer: 'bg-indigo-100 text-indigo-800',
-                      sale: 'bg-emerald-100 text-emerald-800',
-                      return: 'bg-amber-100 text-amber-800',
-                      adjustment: 'bg-purple-100 text-purple-800',
-                      damage: 'bg-rose-100 text-rose-800',
-                      repair: 'bg-teal-100 text-teal-800',
-                      disposal: 'bg-neutral-200 text-neutral-800',
-                    }
+          <TableCard.Table>
+            <TableCard.Header>
+              <TableCard.Row isHeader>
+                <TableCard.Head>Date & Time</TableCard.Head>
+                <TableCard.Head align="center">Type</TableCard.Head>
+                <TableCard.Head>Product & SKU</TableCard.Head>
+                <TableCard.Head align="right">Quantity</TableCard.Head>
+                <TableCard.Head>Origin / Destination</TableCard.Head>
+                <TableCard.Head>Reference</TableCard.Head>
+                <TableCard.Head>Reason / Notes</TableCard.Head>
+                <TableCard.Head>Operator</TableCard.Head>
+              </TableCard.Row>
+            </TableCard.Header>
+            <TableCard.Body>
+              {ledgerData.items.length === 0 ? (
+                <TableCard.Empty
+                  colSpan={8}
+                  message="No stock movements recorded matching your filters."
+                />
+              ) : (
+                ledgerData.items.map((m) => {
+                  const badgeStyles: Record<string, string> = {
+                    inflow: 'bg-blue-100 text-blue-800',
+                    transfer: 'bg-indigo-100 text-indigo-800',
+                    sale: 'bg-emerald-100 text-emerald-800',
+                    return: 'bg-amber-100 text-amber-800',
+                    adjustment: 'bg-purple-100 text-purple-800',
+                    damage: 'bg-rose-100 text-rose-800',
+                    repair: 'bg-teal-100 text-teal-800',
+                    disposal: 'bg-neutral-200 text-neutral-800',
+                  }
 
-                    return (
-                      <tr key={m.id} className="hover:bg-neutral-50/70 transition">
-                        <td className="py-3.5 px-4 text-neutral-500 whitespace-nowrap text-xs">
-                          {new Date(m.createdAt).toLocaleString(undefined, {
-                            dateStyle: 'short',
-                            timeStyle: 'short',
-                          })}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider ${
-                              badgeStyles[m.type] || 'bg-neutral-100 text-neutral-800'
-                            }`}
-                          >
-                            {m.type}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-medium text-neutral-900">
-                          <div className="font-semibold text-neutral-900">{m.product.name}</div>
-                          <VariantDisplay
-                            variant={{
-                              attributes: m.variant.attributes as Record<string, string>,
-                              sku: m.variant.sku,
-                            }}
-                          />
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-semibold text-neutral-900 whitespace-nowrap">
-                          {m.quantity} {m.product.unit}
-                        </td>
-                        <td className="py-3.5 px-4 text-xs">
-                          {m.sourceLocation && m.destinationLocation ? (
-                            <div className="font-medium text-neutral-800">
-                              <span>{m.sourceLocation.name}</span>
-                              <span className="text-neutral-400 mx-1.5">&rarr;</span>
-                              <span>{m.destinationLocation.name}</span>
-                            </div>
-                          ) : m.sourceLocation ? (
-                            <div className="text-neutral-700">
-                              From: <strong>{m.sourceLocation.name}</strong>
-                            </div>
-                          ) : m.destinationLocation ? (
-                            <div className="text-neutral-700">
-                              To: <strong>{m.destinationLocation.name}</strong>
-                            </div>
-                          ) : (
-                            <span className="text-neutral-400">—</span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-xs text-neutral-700">
-                          {m.referenceId || '—'}
-                        </td>
-                        <td className="py-3.5 px-4 text-xs text-neutral-600 max-w-xs truncate" title={m.reason || ''}>
-                          {m.reason || '—'}
-                        </td>
-                        <td className="py-3.5 px-4 text-xs text-neutral-700">
-                          {m.user?.username || 'System'}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {tab === 'activity' && activityData && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-neutral-600">
-              <thead className="bg-neutral-50 text-neutral-900 font-semibold border-b border-neutral-200">
-                <tr>
-                  <th className="py-3 px-4">Date & Time</th>
-                  <th className="py-3 px-4">Action</th>
-                  <th className="py-3 px-4">Entity</th>
-                  <th className="py-3 px-4">Description</th>
-                  <th className="py-3 px-4">Locations</th>
-                  <th className="py-3 px-4">Operator</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {activityData.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-neutral-400">
-                      No activity logs found.
-                    </td>
-                  </tr>
-                ) : (
-                  activityData.items.map((log) => (
-                    <tr key={log.id} className="hover:bg-neutral-50/70 transition">
-                      <td className="py-3.5 px-4 text-neutral-500 whitespace-nowrap text-xs">
-                        {new Date(log.createdAt).toLocaleString(undefined, {
+                  return (
+                    <TableCard.Row key={m.id}>
+                      <TableCard.Cell className="text-neutral-500 whitespace-nowrap text-xs">
+                        {new Date(m.createdAt).toLocaleString(undefined, {
                           dateStyle: 'short',
                           timeStyle: 'short',
                         })}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-neutral-100 text-neutral-800">
-                          {log.action}
+                      </TableCard.Cell>
+                      <TableCard.Cell align="center">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider ${
+                            badgeStyles[m.type] || 'bg-neutral-100 text-neutral-800'
+                          }`}
+                        >
+                          {m.type}
                         </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-xs font-mono capitalize text-neutral-600">
-                        {log.entityType}
-                      </td>
-                      <td className="py-3.5 px-4 text-neutral-900 text-xs">
-                        {log.description}
-                      </td>
-                      <td className="py-3.5 px-4 text-xs">
-                        {log.sourceLocation && log.destinationLocation ? (
-                          <div>
-                            {log.sourceLocation.name} &rarr; {log.destinationLocation.name}
+                      </TableCard.Cell>
+                      <TableCard.Cell className="font-medium text-neutral-900">
+                        <div className="font-semibold text-neutral-900">{m.product.name}</div>
+                        <VariantDisplay
+                          variant={{
+                            attributes: m.variant.attributes as Record<string, string>,
+                            sku: m.variant.sku,
+                          }}
+                        />
+                      </TableCard.Cell>
+                      <TableCard.Cell align="right" className="font-semibold text-neutral-900 whitespace-nowrap">
+                        {m.quantity} {m.product.unit}
+                      </TableCard.Cell>
+                      <TableCard.Cell className="text-xs">
+                        {m.sourceLocation && m.destinationLocation ? (
+                          <div className="font-medium text-neutral-800">
+                            <span>{m.sourceLocation.name}</span>
+                            <span className="text-neutral-400 mx-1.5">&rarr;</span>
+                            <span>{m.destinationLocation.name}</span>
                           </div>
-                        ) : log.sourceLocation ? (
-                          log.sourceLocation.name
-                        ) : log.destinationLocation ? (
-                          log.destinationLocation.name
+                        ) : m.sourceLocation ? (
+                          <div className="text-neutral-700">
+                            From: <strong>{m.sourceLocation.name}</strong>
+                          </div>
+                        ) : m.destinationLocation ? (
+                          <div className="text-neutral-700">
+                            To: <strong>{m.destinationLocation.name}</strong>
+                          </div>
                         ) : (
-                          '—'
+                          <span className="text-neutral-400">—</span>
                         )}
-                      </td>
-                      <td className="py-3.5 px-4 text-xs text-neutral-700">
-                        {log.user?.username || 'System'}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </TableCard.Cell>
+                      <TableCard.Cell className="font-mono text-xs text-neutral-700 whitespace-nowrap">
+                        {m.referenceId || '—'}
+                      </TableCard.Cell>
+                      <TableCard.Cell className="text-xs text-neutral-600 max-w-xs break-words leading-relaxed">
+                        {m.reason || '—'}
+                      </TableCard.Cell>
+                      <TableCard.Cell className="text-xs text-neutral-700 whitespace-nowrap">
+                        {m.user?.username || 'System'}
+                      </TableCard.Cell>
+                    </TableCard.Row>
+                  )
+                })
+              )}
+            </TableCard.Body>
+          </TableCard.Table>
+        )}
+
+        {tab === 'activity' && activityData && (
+          <TableCard.Table>
+            <TableCard.Header>
+              <TableCard.Row isHeader>
+                <TableCard.Head>Date & Time</TableCard.Head>
+                <TableCard.Head>Action</TableCard.Head>
+                <TableCard.Head>Entity</TableCard.Head>
+                <TableCard.Head>Description</TableCard.Head>
+                <TableCard.Head>Locations</TableCard.Head>
+                <TableCard.Head>Operator</TableCard.Head>
+              </TableCard.Row>
+            </TableCard.Header>
+            <TableCard.Body>
+              {activityData.items.length === 0 ? (
+                <TableCard.Empty
+                  colSpan={6}
+                  message="No activity logs found."
+                />
+              ) : (
+                activityData.items.map((log) => (
+                  <TableCard.Row key={log.id}>
+                    <TableCard.Cell className="text-neutral-500 whitespace-nowrap text-xs">
+                      {new Date(log.createdAt).toLocaleString(undefined, {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })}
+                    </TableCard.Cell>
+                    <TableCard.Cell>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-neutral-100 text-neutral-800">
+                        {log.action}
+                      </span>
+                    </TableCard.Cell>
+                    <TableCard.Cell className="text-xs font-mono capitalize text-neutral-600 whitespace-nowrap">
+                      {log.entityType}
+                    </TableCard.Cell>
+                    <TableCard.Cell className="text-neutral-900 text-xs max-w-md break-words leading-relaxed">
+                      {log.description}
+                    </TableCard.Cell>
+                    <TableCard.Cell className="text-xs">
+                      {log.sourceLocation && log.destinationLocation ? (
+                        <div>
+                          {log.sourceLocation.name} &rarr; {log.destinationLocation.name}
+                        </div>
+                      ) : log.sourceLocation ? (
+                        log.sourceLocation.name
+                      ) : log.destinationLocation ? (
+                        log.destinationLocation.name
+                      ) : (
+                        '—'
+                      )}
+                    </TableCard.Cell>
+                    <TableCard.Cell className="text-xs text-neutral-700 whitespace-nowrap">
+                      {log.user?.username || 'System'}
+                    </TableCard.Cell>
+                  </TableCard.Row>
+                ))
+              )}
+            </TableCard.Body>
+          </TableCard.Table>
         )}
 
         {/* Pagination Bar */}
-        <div className="border-t border-neutral-200 bg-neutral-50 px-4">
+        <TableCard.Footer>
           <TablePagination
             page={page}
             pageSize={pageSize}
@@ -417,8 +387,8 @@ function AuditPage() {
               })
             }
           />
-        </div>
-      </div>
+        </TableCard.Footer>
+      </TableCard>
     </div>
   )
 }

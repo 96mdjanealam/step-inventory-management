@@ -23,6 +23,7 @@ export interface LocationSelectProps {
   className?: string
   clearable?: boolean
   initialLocation?: LocationItem | null
+  includeInactive?: boolean
 }
 
 export function LocationSelect({
@@ -35,6 +36,7 @@ export function LocationSelect({
   className = '',
   clearable = false,
   initialLocation = null,
+  includeInactive = false,
 }: LocationSelectProps) {
   const fetchLocations = useServerFn(listLocationsPaginatedFn)
 
@@ -55,12 +57,12 @@ export function LocationSelect({
           search: search || undefined,
           type,
           storeType,
-          includeInactive: false,
+          includeInactive,
         },
       })
       return res as { items: LocationItem[]; total: number }
     },
-    [fetchLocations, type, storeType],
+    [fetchLocations, type, storeType, includeInactive],
   )
 
   function getTypeBadge(loc: LocationItem) {

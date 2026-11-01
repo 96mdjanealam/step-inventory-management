@@ -1,6 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { TableActionLink } from '../../../components/Button.tsx'
+import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
+import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
@@ -43,10 +46,7 @@ function ReturnsPage() {
   const { search, locationId } = Route.useSearch()
   const navigate = Route.useNavigate()
 
-  function handleSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const query = String(new FormData(form).get('search') ?? '').trim()
+  function handleSearchQuery(query: string) {
     navigate({
       search: (prev) => ({
         ...prev,
@@ -70,37 +70,15 @@ function ReturnsPage() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-col md:flex-row gap-3 bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2">
-          <input
-            type="text"
-            name="search"
-            defaultValue={search || ''}
-            placeholder="Search return #, original order #, or reason..."
-            className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="px-3.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-sm font-medium transition"
-          >
-            Search
-          </button>
-          {search && (
-            <button
-              type="button"
-              onClick={() =>
-                navigate({
-                  search: (prev) => ({ ...prev, search: undefined, page: 1 }),
-                })
-              }
-              className="px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-900"
-            >
-              Clear
-            </button>
-          )}
-        </form>
+      <FilterToolbar>
+        <SearchInput
+          defaultValue={search || ''}
+          placeholder="Search return #, original order #, or reason..."
+          onSearch={handleSearchQuery}
+          onClear={() => handleSearchQuery('')}
+        />
 
-        <div className="flex flex-wrap gap-2 items-center">
+        <FilterToolbar.Right>
           <LocationSelect
             value={locationId || ''}
             type="store"
@@ -115,125 +93,121 @@ function ReturnsPage() {
             }
             placeholder="All Store Locations"
             clearable
-            className="w-56"
+            className="w-full sm:w-64"
           />
-        </div>
-      </div>
+        </FilterToolbar.Right>
+      </FilterToolbar>
 
       {/* Returns List Table */}
-      <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-neutral-600">
-            <thead className="bg-neutral-50 text-neutral-900 font-semibold border-b border-neutral-200">
-              <tr>
-                <th className="py-3 px-4">Return #</th>
-                <th className="py-3 px-4">Original Order</th>
-                <th className="py-3 px-4">Returned Item Details</th>
-                <th className="py-3 px-4">Date & Time</th>
-                <th className="py-3 px-4">Store Location</th>
-                <th className="py-3 px-4">Reason</th>
-                <th className="py-3 px-4 text-right">Refund Amount</th>
-                <th className="py-3 px-4">Authorized By</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {returns.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-400">
-                    No customer returns found matching your filters.
-                  </td>
-                </tr>
-              ) : (
-                returns.map((ret) => (
-                  <tr key={ret.id} className="hover:bg-neutral-50/70 transition">
-                    <td className="py-3.5 px-4 font-mono font-medium text-amber-700">
-                      {ret.returnNumber}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono">
-                      <Link
-                        to="/sales/$saleId"
-                        params={{ saleId: ret.saleId }}
-                        className="text-indigo-600 hover:underline"
-                      >
-                        {ret.saleOrderNumber}
-                      </Link>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {ret.items && ret.items.length > 0 ? (
-                        <div className="flex flex-col gap-2">
-                          {ret.items.map((item, idx) => {
-                            const variantInfo = formatVariantInfo({
-                              attributes: item.attributes as Record<string, string>,
-                              sku: item.sku,
-                            })
+      <TableCard>
+        <TableCard.Table>
+          <TableCard.Header>
+            <TableCard.Row isHeader>
+              <TableCard.Head>Return #</TableCard.Head>
+              <TableCard.Head>Original Order</TableCard.Head>
+              <TableCard.Head>Returned Item Details</TableCard.Head>
+              <TableCard.Head>Date & Time</TableCard.Head>
+              <TableCard.Head>Store Location</TableCard.Head>
+              <TableCard.Head>Reason</TableCard.Head>
+              <TableCard.Head align="right">Refund Amount</TableCard.Head>
+              <TableCard.Head>Authorized By</TableCard.Head>
+              <TableCard.Head align="right">Actions</TableCard.Head>
+            </TableCard.Row>
+          </TableCard.Header>
+          <TableCard.Body>
+            {returns.length === 0 ? (
+              <TableCard.Empty
+                colSpan={9}
+                message="No customer returns found matching your filters."
+              />
+            ) : (
+              returns.map((ret) => (
+                <TableCard.Row key={ret.id}>
+                  <TableCard.Cell className="font-mono font-medium text-amber-700 whitespace-nowrap">
+                    {ret.returnNumber}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="font-mono whitespace-nowrap">
+                    <Link
+                      to="/sales/$saleId"
+                      params={{ saleId: ret.saleId }}
+                      className="text-indigo-600 hover:underline"
+                    >
+                      {ret.saleOrderNumber}
+                    </Link>
+                  </TableCard.Cell>
+                  <TableCard.Cell>
+                    {ret.items && ret.items.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {ret.items.map((item, idx) => {
+                          const variantInfo = formatVariantInfo({
+                            attributes: item.attributes as Record<string, string>,
+                            sku: item.sku,
+                          })
 
-                            return (
-                              <div
-                                key={idx}
-                                className="text-xs"
-                              >
-                                <div className="font-semibold text-neutral-900">
-                                  {item.productName}{' '}
-                                  <span className="font-normal text-neutral-500">
-                                    ({item.quantity} {item.unit})
-                                  </span>
-                                </div>
-                                <div className="text-neutral-700 font-medium">
-                                  {variantInfo.title}
-                                </div>
-                                {variantInfo.subtitle && (
-                                  <div className="text-neutral-400 font-mono text-[11px]">
-                                    {variantInfo.subtitle}
-                                  </div>
-                                )}
+                          return (
+                            <div
+                              key={idx}
+                              className="text-xs"
+                            >
+                              <div className="font-semibold text-neutral-900">
+                                {item.productName}{' '}
+                                <span className="font-normal text-neutral-500">
+                                  ({item.quantity} {item.unit})
+                                </span>
                               </div>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-neutral-400">—</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-neutral-500 whitespace-nowrap">
-                      {new Date(ret.createdAt).toLocaleString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className="py-3.5 px-4 font-medium text-neutral-900">
-                      {ret.locationName}
-                    </td>
-                    <td className="py-3.5 px-4 text-neutral-700 max-w-xs truncate" title={ret.reason}>
-                      {ret.reason}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-semibold text-rose-600">
-                      -${Number(ret.totalRefundAmount).toFixed(2)}
-                    </td>
-                    <td className="py-3.5 px-4 text-neutral-700">
-                      {ret.processedByUsername || 'Staff'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        to="/sales/$saleId"
-                        params={{ saleId: ret.saleId }}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600 hover:text-neutral-900 px-2.5 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 transition"
-                      >
-                        View Sale Order
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                              <div className="text-neutral-700 font-medium">
+                                {variantInfo.title}
+                              </div>
+                              {variantInfo.subtitle && (
+                                <div className="text-neutral-400 font-mono text-[11px]">
+                                  {variantInfo.subtitle}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-neutral-400">—</span>
+                    )}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="text-neutral-500 whitespace-nowrap">
+                    {new Date(ret.createdAt).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="font-medium text-neutral-900 whitespace-nowrap">
+                    {ret.locationName}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="text-neutral-700 max-w-xs break-words leading-relaxed">
+                    {ret.reason}
+                  </TableCard.Cell>
+                  <TableCard.Cell align="right" className="font-semibold text-rose-600 whitespace-nowrap">
+                    -${Number(ret.totalRefundAmount).toFixed(2)}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="text-neutral-700 whitespace-nowrap">
+                    {ret.processedByUsername || 'Staff'}
+                  </TableCard.Cell>
+                  <TableCard.Cell align="right" className="whitespace-nowrap">
+                    <TableActionLink
+                      to="/sales/$saleId"
+                      params={{ saleId: ret.saleId }}
+                    >
+                      View Sale Order
+                    </TableActionLink>
+                  </TableCard.Cell>
+                </TableCard.Row>
+              ))
+            )}
+          </TableCard.Body>
+        </TableCard.Table>
 
         {/* Pagination Bar */}
-        <div className="border-t border-neutral-200 bg-neutral-50 px-4">
+        <TableCard.Footer>
           <TablePagination
             page={page}
             pageSize={pageSize}
@@ -256,8 +230,8 @@ function ReturnsPage() {
               })
             }
           />
-        </div>
-      </div>
+        </TableCard.Footer>
+      </TableCard>
     </div>
   )
 }

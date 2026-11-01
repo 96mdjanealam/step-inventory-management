@@ -3,6 +3,9 @@ import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon, Plus } from 'lucide-react'
 import { z } from 'zod'
+import { LinkButton, TableActionButton } from '../../../components/Button.tsx'
+import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
+import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import {
   archiveProductFn,
@@ -52,11 +55,7 @@ function ProductsPage() {
 
   const isAdmin = user.role === 'admin'
 
-  function handleSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const value = String(
-      new FormData(event.currentTarget).get('search') ?? '',
-    ).trim()
+  function handleSearchQuery(value: string) {
     navigate({
       search: (prev) => ({
         ...prev,
@@ -108,180 +107,172 @@ function ProductsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Products</h1>
-          <p className="text-sm text-gray-500">
-            Manage your inventory catalog and variants
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Products</h1>
+          <p className="text-sm text-neutral-500">
+            Manage your inventory catalog, units, categories, and variants
           </p>
         </div>
-        <Link
+        <LinkButton
           to="/products/new"
-          className="inline-flex items-center gap-1.5 rounded bg-black px-3 py-2 text-sm text-white hover:bg-gray-800"
+          leftIcon={<Plus className="w-4 h-4" />}
         >
-          <Plus className="w-4 h-4" />
           New Product
-        </Link>
+        </LinkButton>
       </div>
 
       {actionError ? (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
           {actionError}
         </div>
       ) : null}
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <form onSubmit={handleSearch} className="flex flex-1 gap-2">
-          <input
-            name="search"
-            defaultValue={search ?? ''}
-            placeholder="Search by name"
-            className="flex-1 rounded border px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            className="rounded bg-black px-3 py-2 text-sm text-white hover:bg-gray-800"
-          >
-            Search
-          </button>
-        </form>
+      <FilterToolbar>
+        <SearchInput
+          defaultValue={search ?? ''}
+          placeholder="Search by product name..."
+          onSearch={handleSearchQuery}
+          onClear={() => handleSearchQuery('')}
+        />
 
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={Boolean(includeArchived)}
-            onChange={(e) => handleToggleArchived(e.target.checked)}
-            className="rounded border-gray-300"
-          />
-          Show archived products
-        </label>
-      </div>
+        <FilterToolbar.Right>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-600 select-none">
+            <input
+              type="checkbox"
+              checked={Boolean(includeArchived)}
+              onChange={(e) => handleToggleArchived(e.target.checked)}
+              className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+            />
+            Show archived products
+          </label>
+        </FilterToolbar.Right>
+      </FilterToolbar>
 
-      {items.length === 0 ? (
-        <p className="py-8 text-center text-gray-500">No products found.</p>
-      ) : (
-        <div className="overflow-x-auto rounded border">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b bg-gray-50 text-xs text-gray-700 uppercase">
+      <TableCard>
+        <TableCard.Container>
+          <TableCard.Table>
+            <TableCard.Header>
               <tr>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">Status</th>
+                <TableCard.Th>Product Name</TableCard.Th>
+                <TableCard.Th>Category</TableCard.Th>
+                <TableCard.Th>Price</TableCard.Th>
+                <TableCard.Th className="text-center">Status</TableCard.Th>
                 {isAdmin ? (
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <TableCard.Th className="text-right">Actions</TableCard.Th>
                 ) : null}
               </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map((item) => {
-                const cover = item.images?.[0] || item.variantImage
-                return (
-                  <tr key={item.id} className="hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded border border-gray-200 bg-gray-50 flex items-center justify-center">
-                          {cover ? (
-                            <img
-                              src={cover}
-                              alt=""
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                ;(e.target as HTMLImageElement).src =
-                                  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
-                              }}
-                            />
-                          ) : (
-                            <ImageIcon className="h-5 w-5 text-gray-300" />
-                          )}
-                        </div>
-                        <div>
-                          <Link
-                            to="/products/$productId"
-                            params={{ productId: item.id }}
-                            className="font-semibold text-black hover:underline"
-                          >
-                            {item.name}
-                          </Link>
-                          <div className="text-xs text-gray-400">
-                            {item.targetConsumer} · {item.unit}
+            </TableCard.Header>
+            <TableCard.Body>
+              {items.length === 0 ? (
+                <TableCard.Empty colSpan={isAdmin ? 5 : 4} message="No products found matching your filters." />
+              ) : (
+                items.map((item) => {
+                  const cover = item.images?.[0] || item.variantImage
+                  return (
+                    <TableCard.Row key={item.id}>
+                      <TableCard.Td className="font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 flex items-center justify-center">
+                            {cover ? (
+                              <img
+                                src={cover}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  ;(e.target as HTMLImageElement).src =
+                                    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
+                                }}
+                              />
+                            ) : (
+                              <ImageIcon className="h-5 w-5 text-neutral-300" />
+                            )}
+                          </div>
+                          <div>
+                            <Link
+                              to="/products/$productId"
+                              params={{ productId: item.id }}
+                              className="font-semibold text-neutral-900 hover:underline"
+                            >
+                              {item.name}
+                            </Link>
+                            <div className="text-xs text-neutral-400">
+                              {item.targetConsumer} · {item.unit}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                  <td className="px-4 py-3 text-gray-600">{item.category}</td>
-                  <td className="px-4 py-3">
-                    ${item.discountedPrice}
-                    {item.regularPrice ? (
-                      <span className="ml-2 text-xs text-gray-400 line-through">
-                        ${item.regularPrice}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    {item.isActive ? (
-                      <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                        Archived
-                      </span>
-                    )}
-                  </td>
-                  {isAdmin ? (
-                    <td className="px-4 py-3 text-right">
-                      {item.isActive ? (
-                        <button
-                          type="button"
-                          disabled={actionPendingId === item.id}
-                          onClick={() => handleArchive(item.id, item.name)}
-                          className="text-xs text-red-600 hover:underline disabled:opacity-50"
-                        >
-                          {actionPendingId === item.id
-                            ? 'Archiving...'
-                            : 'Archive'}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={actionPendingId === item.id}
-                          onClick={() => handleRestore(item.id)}
-                          className="text-xs text-blue-600 hover:underline disabled:opacity-50"
-                        >
-                          {actionPendingId === item.id
-                            ? 'Restoring...'
-                            : 'Restore'}
-                        </button>
-                      )}
-                    </td>
-                  ) : null}
-                </tr>
-              )
-            })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      </TableCard.Td>
+                      <TableCard.Td className="text-neutral-600">{item.category}</TableCard.Td>
+                      <TableCard.Td className="font-medium text-neutral-900">
+                        ${item.discountedPrice}
+                        {item.regularPrice &&
+                        item.regularPrice !== item.discountedPrice ? (
+                          <span className="ml-2 text-xs text-neutral-400 line-through">
+                            ${item.regularPrice}
+                          </span>
+                        ) : null}
+                      </TableCard.Td>
+                      <TableCard.Td className="text-center">
+                        {item.isActive ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
+                            Archived
+                          </span>
+                        )}
+                      </TableCard.Td>
+                      {isAdmin ? (
+                        <TableCard.Td className="text-right">
+                          {item.isActive ? (
+                            <TableActionButton
+                              variant="danger"
+                              disabled={actionPendingId === item.id}
+                              isLoading={actionPendingId === item.id}
+                              onClick={() => handleArchive(item.id, item.name)}
+                            >
+                              Archive
+                            </TableActionButton>
+                          ) : (
+                            <TableActionButton
+                              variant="primary"
+                              disabled={actionPendingId === item.id}
+                              isLoading={actionPendingId === item.id}
+                              onClick={() => handleRestore(item.id)}
+                            >
+                              Restore
+                            </TableActionButton>
+                          )}
+                        </TableCard.Td>
+                      ) : null}
+                    </TableCard.Row>
+                  )
+                })
+              )}
+            </TableCard.Body>
+          </TableCard.Table>
+        </TableCard.Container>
 
-      <div className="mt-4">
-        <TablePagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={(newPage) =>
-            navigate({
-              search: (prev) => ({ ...prev, page: newPage }),
-            })
-          }
-          onPageSizeChange={(newPageSize) =>
-            navigate({
-              search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
-            })
-          }
-        />
-      </div>
-    </main>
+        <TableCard.Footer>
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={(newPage) =>
+              navigate({
+                search: (prev) => ({ ...prev, page: newPage }),
+              })
+            }
+            onPageSizeChange={(newPageSize) =>
+              navigate({
+                search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+              })
+            }
+          />
+        </TableCard.Footer>
+      </TableCard>
+    </div>
   )
 }

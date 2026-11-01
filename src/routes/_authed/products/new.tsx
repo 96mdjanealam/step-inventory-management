@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
+import { Button, LinkButton } from '../../../components/Button.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { createProductSchema } from '../../../lib/schemas/product.ts'
 import { createProductFn } from '../../../server/functions/products.ts'
@@ -665,19 +666,18 @@ function NewProductPage() {
         ) : null}
 
         <div className="flex justify-end gap-3 pt-2">
-          <Link
+          <LinkButton
             to="/products"
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            variant="secondary"
           >
             Cancel
-          </Link>
-          <button
+          </LinkButton>
+          <Button
             type="submit"
-            disabled={pending}
-            className="rounded-md bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            isLoading={pending}
           >
-            {pending ? 'Saving Product...' : 'Create Product'}
-          </button>
+            Create Product
+          </Button>
         </div>
       </form>
     </main>

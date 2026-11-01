@@ -3,8 +3,11 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { Button, TableActionButton } from '../../../components/Button.tsx'
+import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { Select } from '../../../components/Select.tsx'
+import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { VariantSelect } from '../../../components/VariantSelect.tsx'
 import { VariantDisplay } from '../../../lib/display-formatters.tsx'
@@ -92,10 +95,7 @@ function DamageReportsPage() {
     (i) => i.variantId === reportVariantId,
   )
 
-  function handleSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const query = String(new FormData(form).get('search') ?? '').trim()
+  function handleSearchQuery(query: string) {
     navigate({
       search: (prev) => ({
         ...prev,
@@ -224,7 +224,7 @@ function DamageReportsPage() {
           </p>
         </div>
 
-        <button
+        <Button
           onClick={() => {
             setModalError(null)
             if (sellableLocations.length > 0) {
@@ -232,11 +232,10 @@ function DamageReportsPage() {
             }
             setShowReportModal(true)
           }}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 transition shadow-sm"
+          leftIcon={<Plus className="w-4 h-4" />}
         >
-          <Plus className="w-4 h-4" />
           Report Damaged Stock
-        </button>
+        </Button>
       </div>
 
       {/* KPI Summary Cards */}
@@ -375,37 +374,15 @@ function DamageReportsPage() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-col md:flex-row gap-3 bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2">
-          <input
-            type="text"
-            name="search"
-            defaultValue={search || ''}
-            placeholder="Search damage #, product name, SKU, or reason..."
-            className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="px-3.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-sm font-medium transition"
-          >
-            Search
-          </button>
-          {search && (
-            <button
-              type="button"
-              onClick={() =>
-                navigate({
-                  search: (prev) => ({ ...prev, search: undefined, page: 1 }),
-                })
-              }
-              className="px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-900"
-            >
-              Clear
-            </button>
-          )}
-        </form>
+      <FilterToolbar>
+        <SearchInput
+          defaultValue={search || ''}
+          placeholder="Search damage #, product name, SKU, or reason..."
+          onSearch={handleSearchQuery}
+          onClear={() => handleSearchQuery('')}
+        />
 
-        <div className="flex flex-wrap gap-2 items-center">
+        <FilterToolbar.Right>
           <LocationSelect
             value={locationId || ''}
             onChange={(val) =>
@@ -419,7 +396,7 @@ function DamageReportsPage() {
             }
             placeholder="All Source Locations"
             clearable
-            className="w-56"
+            className="w-full sm:w-64"
           />
 
           <Select
@@ -429,171 +406,161 @@ function DamageReportsPage() {
                 e.target.value as 'quarantined' | 'repaired' | 'disposed' | '',
               )
             }
-            sizeVariant="sm"
+            className="w-full sm:w-44"
           >
             <option value="">All Statuses</option>
             <option value="quarantined">Quarantined</option>
             <option value="repaired">Repaired</option>
             <option value="disposed">Disposed</option>
           </Select>
-        </div>
-      </div>
+        </FilterToolbar.Right>
+      </FilterToolbar>
 
       {/* Reports Table */}
-      <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-neutral-600">
-            <thead className="bg-neutral-50 text-neutral-900 font-semibold border-b border-neutral-200">
-              <tr>
-                <th className="py-3 px-4">Damage #</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Source Location</th>
-                <th className="py-3 px-4">Product & SKU</th>
-                <th className="py-3 px-4 text-right">Quantity</th>
-                <th className="py-3 px-4">Reason</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {damageReports.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-neutral-400">
-                    No damage reports found matching your criteria.
-                  </td>
-                </tr>
-              ) : (
-                damageReports.map((report) => (
-                  <tr key={report.id} className="hover:bg-neutral-50/70 transition">
-                    <td className="py-3.5 px-4 font-mono font-medium text-neutral-900">
-                      {report.damageNumber}
-                    </td>
-                    <td className="py-3.5 px-4 text-neutral-500 whitespace-nowrap">
-                      {new Date(report.createdAt).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="py-3.5 px-4 font-medium text-neutral-900">
-                      {report.sourceLocationName}
-                    </td>
-                    <td className="py-3.5 px-4 text-neutral-900">
-                      <div className="font-semibold text-neutral-900">
-                        {report.productName}
+      <TableCard>
+        <TableCard.Table>
+          <TableCard.Header>
+            <TableCard.Row isHeader>
+              <TableCard.Head>Damage #</TableCard.Head>
+              <TableCard.Head>Date</TableCard.Head>
+              <TableCard.Head>Source Location</TableCard.Head>
+              <TableCard.Head>Product & SKU</TableCard.Head>
+              <TableCard.Head align="right">Quantity</TableCard.Head>
+              <TableCard.Head>Reason</TableCard.Head>
+              <TableCard.Head align="center">Status</TableCard.Head>
+              <TableCard.Head align="right">Actions</TableCard.Head>
+            </TableCard.Row>
+          </TableCard.Header>
+          <TableCard.Body>
+            {damageReports.length === 0 ? (
+              <TableCard.Empty
+                colSpan={8}
+                message="No damage reports found matching your criteria."
+              />
+            ) : (
+              damageReports.map((report) => (
+                <TableCard.Row key={report.id}>
+                  <TableCard.Cell className="font-mono font-medium text-neutral-900 whitespace-nowrap">
+                    {report.damageNumber}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="text-neutral-500 whitespace-nowrap">
+                    {new Date(report.createdAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="font-medium text-neutral-900 whitespace-nowrap">
+                    {report.sourceLocationName}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="text-neutral-900">
+                    <div className="font-semibold text-neutral-900">
+                      {report.productName}
+                    </div>
+                    <VariantDisplay
+                      variant={{
+                        attributes: report.attributes as Record<string, string>,
+                        sku: report.sku,
+                      }}
+                    />
+                  </TableCard.Cell>
+                  <TableCard.Cell align="right" className="whitespace-nowrap">
+                    {report.status === 'disposed' ? (
+                      <div>
+                        <span className="font-bold text-rose-700">
+                          {report.quantity} {report.unit}
+                        </span>
+                        <span className="block text-[10px] font-semibold text-rose-500 uppercase tracking-tight">
+                          Wasted
+                        </span>
                       </div>
-                      <VariantDisplay
-                        variant={{
-                          attributes: report.attributes as Record<string, string>,
-                          sku: report.sku,
+                    ) : report.status === 'repaired' ? (
+                      <div>
+                        <span className="font-bold text-emerald-700">
+                          {report.quantity} {report.unit}
+                        </span>
+                        <span className="block text-[10px] font-semibold text-emerald-600 uppercase tracking-tight">
+                          Restored
+                        </span>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="font-bold text-amber-800">
+                          {report.quantity} {report.unit}
+                        </span>
+                        <span className="block text-[10px] font-semibold text-amber-600 uppercase tracking-tight">
+                          In Quarantine
+                        </span>
+                      </div>
+                    )}
+                  </TableCard.Cell>
+                  <TableCard.Cell className="text-neutral-700 max-w-xs break-words leading-relaxed">
+                    <div className="text-xs text-neutral-800">
+                      {report.reason}
+                    </div>
+                    {report.resolutionNotes ? (
+                      <div className="mt-1 text-xs text-neutral-500">
+                        <span className="font-medium text-neutral-600">
+                          {report.status === 'disposed'
+                            ? 'Disposal Note: '
+                            : 'Note: '}
+                        </span>
+                        {report.resolutionNotes}
+                      </div>
+                    ) : null}
+                  </TableCard.Cell>
+                  <TableCard.Cell align="center" className="whitespace-nowrap">
+                    {report.status === 'quarantined' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        Quarantined
+                      </span>
+                    )}
+                    {report.status === 'repaired' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                        Repaired
+                      </span>
+                    )}
+                    {report.status === 'disposed' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
+                        Disposed
+                      </span>
+                    )}
+                  </TableCard.Cell>
+                  <TableCard.Cell align="right" className="whitespace-nowrap">
+                    {report.status === 'quarantined' ? (
+                      <TableActionButton
+                        onClick={() => {
+                          setModalError(null)
+                          setResolvingReport(report)
+                          setResolveAction('repair')
+                          setResolveLocationId(report.sourceLocationId)
                         }}
-                      />
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      {report.status === 'disposed' ? (
-                        <div>
-                          <span className="font-bold text-rose-700">
-                            {report.quantity} {report.unit}
-                          </span>
-                          <span className="block text-[10px] font-semibold text-rose-500 uppercase tracking-tight">
-                            Wasted
-                          </span>
-                        </div>
-                      ) : report.status === 'repaired' ? (
-                        <div>
-                          <span className="font-bold text-emerald-700">
-                            {report.quantity} {report.unit}
-                          </span>
-                          <span className="block text-[10px] font-semibold text-emerald-600 uppercase tracking-tight">
-                            Restored
-                          </span>
-                        </div>
-                      ) : (
-                        <div>
-                          <span className="font-bold text-amber-800">
-                            {report.quantity} {report.unit}
-                          </span>
-                          <span className="block text-[10px] font-semibold text-amber-600 uppercase tracking-tight">
-                            In Quarantine
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-neutral-700 max-w-xs">
-                      <div
-                        className="text-xs text-neutral-800 truncate"
-                        title={report.reason}
                       >
-                        {report.reason}
+                        Resolve
+                      </TableActionButton>
+                    ) : (
+                      <div className="text-xs text-neutral-500 text-right">
+                        <span className="font-medium text-neutral-700">
+                          {report.status === 'disposed'
+                            ? 'Written Off'
+                            : 'Restored'}
+                        </span>
+                        {report.resolverUsername ? (
+                          <div className="text-[11px] text-neutral-400">
+                            by {report.resolverUsername}
+                          </div>
+                        ) : null}
                       </div>
-                      {report.resolutionNotes ? (
-                        <div
-                          className="mt-0.5 text-xs text-neutral-500 truncate"
-                          title={report.resolutionNotes}
-                        >
-                          <span className="font-medium text-neutral-600">
-                            {report.status === 'disposed'
-                              ? 'Disposal Note: '
-                              : 'Note: '}
-                          </span>
-                          {report.resolutionNotes}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      {report.status === 'quarantined' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                          Quarantined
-                        </span>
-                      )}
-                      {report.status === 'repaired' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                          Repaired
-                        </span>
-                      )}
-                      {report.status === 'disposed' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
-                          Disposed
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      {report.status === 'quarantined' ? (
-                        <button
-                          onClick={() => {
-                            setModalError(null)
-                            setResolvingReport(report)
-                            setResolveAction('repair')
-                            setResolveLocationId(report.sourceLocationId)
-                          }}
-                          className="px-2.5 py-1 text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-md transition"
-                        >
-                          Resolve
-                        </button>
-                      ) : (
-                        <div className="text-xs text-neutral-500 text-right">
-                          <span className="font-medium text-neutral-700">
-                            {report.status === 'disposed'
-                              ? 'Written Off'
-                              : 'Restored'}
-                          </span>
-                          {report.resolverUsername ? (
-                            <div className="text-[11px] text-neutral-400">
-                              by {report.resolverUsername}
-                            </div>
-                          ) : null}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    )}
+                  </TableCard.Cell>
+                </TableCard.Row>
+              ))
+            )}
+          </TableCard.Body>
+        </TableCard.Table>
 
         {/* Pagination Bar */}
-        <div className="border-t border-neutral-200 bg-neutral-50 px-4">
+        <TableCard.Footer>
           <TablePagination
             page={page}
             pageSize={pageSize}
@@ -616,8 +583,8 @@ function DamageReportsPage() {
               })
             }
           />
-        </div>
-      </div>
+        </TableCard.Footer>
+      </TableCard>
 
       {/* Report Damage Modal */}
       {showReportModal && (
@@ -722,26 +689,24 @@ function DamageReportsPage() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   disabled={reportPending}
                   onClick={() => setShowReportModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-lg transition"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={
-                    reportPending ||
                     !reportSourceId ||
                     !reportVariantId ||
                     Number(reportQuantity) <= 0
                   }
-                  className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg transition shadow-sm"
+                  isLoading={reportPending}
                 >
-                  {reportPending ? 'Quarantining...' : 'Quarantine Damaged Stock'}
-                </button>
+                  Quarantine Damaged Stock
+                </Button>
               </div>
             </form>
           </div>
@@ -833,29 +798,21 @@ function DamageReportsPage() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   disabled={resolvePending}
                   onClick={() => setResolvingReport(null)}
-                  className="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-lg transition"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={resolvePending || resolveNotes.trim().length < 3}
-                  className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition shadow-sm ${
-                    resolveAction === 'repair'
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : 'bg-rose-600 hover:bg-rose-700'
-                  }`}
+                  variant={resolveAction === 'repair' ? 'primary' : 'danger'}
+                  disabled={resolveNotes.trim().length < 3}
+                  isLoading={resolvePending}
                 >
-                  {resolvePending
-                    ? 'Processing...'
-                    : resolveAction === 'repair'
-                    ? 'Confirm Restock'
-                    : 'Confirm Disposal'}
-                </button>
+                  {resolveAction === 'repair' ? 'Confirm Restock' : 'Confirm Disposal'}
+                </Button>
               </div>
             </form>
           </div>

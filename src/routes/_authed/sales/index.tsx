@@ -1,6 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { LinkButton, TableActionLink } from '../../../components/Button.tsx'
+import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
@@ -47,10 +49,7 @@ function SalesPage() {
   const { search, locationId, status } = Route.useSearch()
   const navigate = Route.useNavigate()
 
-  function handleSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const query = String(new FormData(form).get('search') ?? '').trim()
+  function handleSearchQuery(query: string) {
     navigate({
       search: (prev) => ({
         ...prev,
@@ -82,47 +81,24 @@ function SalesPage() {
             Point-of-sale customer orders, receipts, and order cancellations.
           </p>
         </div>
-        <Link
+        <LinkButton
           to="/sales/new"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 transition shadow-sm"
+          leftIcon={<Plus className="w-4 h-4" />}
         >
-          <Plus className="w-4 h-4" />
           New Sale
-        </Link>
+        </LinkButton>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-col md:flex-row gap-3 bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2">
-          <input
-            type="text"
-            name="search"
-            defaultValue={search || ''}
-            placeholder="Search order #, customer name or phone..."
-            className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="px-3.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-sm font-medium transition"
-          >
-            Search
-          </button>
-          {search && (
-            <button
-              type="button"
-              onClick={() =>
-                navigate({
-                  search: (prev) => ({ ...prev, search: undefined, page: 1 }),
-                })
-              }
-              className="px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-900"
-            >
-              Clear
-            </button>
-          )}
-        </form>
+      <FilterToolbar>
+        <SearchInput
+          defaultValue={search || ''}
+          placeholder="Search order #, customer name or phone..."
+          onSearch={handleSearchQuery}
+          onClear={() => handleSearchQuery('')}
+        />
 
-        <div className="flex flex-wrap gap-2 items-center">
+        <FilterToolbar.Right>
           <LocationSelect
             value={locationId || ''}
             type="store"
@@ -137,20 +113,20 @@ function SalesPage() {
             }
             placeholder="All Store Locations"
             clearable
-            className="w-56"
+            className="w-full sm:w-64"
           />
 
           <Select
             value={status || ''}
             onChange={handleStatusFilter}
-            sizeVariant="sm"
+            className="w-full sm:w-44"
           >
             <option value="">All Statuses</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </Select>
-        </div>
-      </div>
+        </FilterToolbar.Right>
+      </FilterToolbar>
 
       {/* Sales List Table */}
       <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
@@ -229,13 +205,12 @@ function SalesPage() {
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <Link
+                      <TableActionLink
                         to="/sales/$saleId"
                         params={{ saleId: sale.id }}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600 hover:text-neutral-900 px-2.5 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 transition"
                       >
                         View Details
-                      </Link>
+                      </TableActionLink>
                     </td>
                   </tr>
                 ))

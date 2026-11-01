@@ -9,10 +9,11 @@ import {
   Package,
   Plus,
 } from 'lucide-react'
+import { Button, LinkButton } from '../../../components/Button.tsx'
 import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
-import { VariantSelect } from '../../../components/VariantSelect.tsx'
+import { VariantSelect, type VariantSelectItem } from '../../../components/VariantSelect.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import {
   createTransferFn,
@@ -58,7 +59,7 @@ interface DraftState {
   quantity: string
 }
 
-export function NewTransferPage() {
+function NewTransferPage() {
   const { locations } = Route.useLoaderData()
   const navigate = useNavigate()
 
@@ -92,6 +93,7 @@ export function NewTransferPage() {
     variantId: '',
     quantity: '1',
   })
+  const [draftVariantItem, setDraftVariantItem] = useState<VariantSelectItem | null>(null)
   const [draftError, setDraftError] = useState<string | null>(null)
 
   const [notes, setNotes] = useState<string>('')
@@ -160,12 +162,16 @@ export function NewTransferPage() {
   function handleOpenAdd() {
     setEditingId(null)
     setDraftError(null)
+    setDraftVariantItem(null)
     setDraft({
       productId: '',
       variantId: '',
       quantity: '1',
     })
     setIsAdding(true)
+    if (sourceLocationId) {
+      fetchStockForLocation(sourceLocationId)
+    }
   }
 
   // Start editing an existing item
@@ -173,16 +179,21 @@ export function NewTransferPage() {
     setIsAdding(false)
     setEditingId(item.id)
     setDraftError(null)
+    setDraftVariantItem(null)
     setDraft({
       productId: item.productId,
       variantId: item.variantId,
       quantity: item.quantity,
     })
+    if (sourceLocationId) {
+      fetchStockForLocation(sourceLocationId)
+    }
   }
 
   function handleCancelDraft() {
     setIsAdding(false)
     setEditingId(null)
+    setDraftVariantItem(null)
     setDraftError(null)
   }
 
@@ -193,17 +204,90 @@ export function NewTransferPage() {
       variantId: '',
       quantity: '1',
     })
+    setDraftVariantItem(null)
     setDraftError(null)
   }
 
-  function handleDraftVariantChange(newVariantId: string) {
+  function handleDraftVariantChange(
+    newVariantId: string,
+    variantItem?: VariantSelectItem | null,
+  ) {
     setDraft((prev) => ({
       ...prev,
       variantId: newVariantId,
       quantity: '1',
     }))
+    setDraftVariantItem(variantItem || null)
     setDraftError(null)
+
+    if (variantItem) {
+      setSourceStock((prev) => {
+        const idx = prev.findIndex((i) => i.variantId === variantItem.variantId)
+        if (idx >= 0) {
+          const updated = [...prev]
+          updated[idx] = {
+            ...updated[idx],
+            quantity: variantItem.quantity ?? updated[idx].quantity,
+            productName: variantItem.productName ?? updated[idx].productName,
+            sku: variantItem.sku ?? updated[idx].sku,
+            unit: variantItem.unit ?? updated[idx].unit,
+            measurementType:
+              variantItem.measurementType ?? updated[idx].measurementType,
+          }
+          return updated
+        }
+        return [
+          ...prev,
+          {
+            id: variantItem.id,
+            productId: variantItem.productId,
+            productName: variantItem.productName || '',
+            category: variantItem.category || '',
+            measurementType: variantItem.measurementType || 'count',
+            unit: variantItem.unit || 'piece',
+            productImages: variantItem.productImages || [],
+            variantId: variantItem.variantId,
+            sku: variantItem.sku || null,
+            attributes: variantItem.attributes || {},
+            variantImage: variantItem.variantImage || null,
+            quantity: variantItem.quantity || '0',
+            discountedPrice: variantItem.price || '0.00',
+          },
+        ]
+      })
+    }
   }
+
+  const fallbackDraftInfo = getVariantInfo(draft.variantId)
+  const draftInfo =
+    draftVariantItem &&
+    (draftVariantItem.variantId === draft.variantId ||
+      draftVariantItem.id === draft.variantId)
+      ? {
+          productId: draftVariantItem.productId,
+          productName:
+            draftVariantItem.productName || fallbackDraftInfo?.productName || '',
+          sku: draftVariantItem.sku ?? fallbackDraftInfo?.sku ?? null,
+          attributes:
+            draftVariantItem.attributes || fallbackDraftInfo?.attributes || null,
+          unit: draftVariantItem.unit || fallbackDraftInfo?.unit || 'piece',
+          measurementType:
+            draftVariantItem.measurementType ||
+            fallbackDraftInfo?.measurementType ||
+            'count',
+          image:
+            draftVariantItem.variantImage ||
+            draftVariantItem.image ||
+            draftVariantItem.productImages?.[0] ||
+            fallbackDraftInfo?.image ||
+            null,
+          availableStock:
+            draftVariantItem.quantity ?? fallbackDraftInfo?.availableStock ?? '0',
+        }
+      : fallbackDraftInfo
+
+  const isDraftCount =
+    draftInfo?.measurementType === 'count' || draftInfo?.unit === 'piece'
 
   // Save current draft (either insert new item or update existing)
   function handleSaveDraft() {
@@ -219,7 +303,7 @@ export function NewTransferPage() {
       return
     }
 
-    const info = getVariantInfo(draft.variantId)
+    const info = draftInfo || getVariantInfo(draft.variantId)
     if (!info) {
       setDraftError('Selected variant is not available in source stock')
       return
@@ -267,6 +351,7 @@ export function NewTransferPage() {
         ),
       )
       setEditingId(null)
+      setDraftVariantItem(null)
     } else {
       // Add new item to list
       setItems((prev) => [
@@ -279,6 +364,7 @@ export function NewTransferPage() {
         },
       ])
       setIsAdding(false)
+      setDraftVariantItem(null)
     }
   }
 
@@ -336,10 +422,6 @@ export function NewTransferPage() {
 
   // Render the Builder Row (2 sides, vertical within each side)
   function renderBuilderRow(mode: 'add' | 'edit') {
-    const draftInfo = getVariantInfo(draft.variantId)
-    const isDraftCount =
-      draftInfo?.measurementType === 'count' || draftInfo?.unit === 'piece'
-
     return (
       <div className="bg-neutral-50/80 border border-neutral-300 rounded-xl p-4 space-y-4 shadow-xs">
         <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
@@ -380,8 +462,8 @@ export function NewTransferPage() {
                 locationId={sourceLocationId}
                 productId={draft.productId}
                 value={draft.variantId}
-                onChange={(newVariantId) =>
-                  handleDraftVariantChange(newVariantId)
+                onChange={(newVariantId, variantItem) =>
+                  handleDraftVariantChange(newVariantId, variantItem)
                 }
                 placeholder={
                   !draft.productId
@@ -691,14 +773,15 @@ export function NewTransferPage() {
               {/* Add Item Button AT THE END OF THE LIST */}
               {!isAdding && !editingId && (
                 <div className="pt-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={handleOpenAdd}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white hover:bg-neutral-50 px-4 py-2.5 text-xs font-semibold text-neutral-800 transition shadow-2xs"
+                    leftIcon={<Plus className="w-4 h-4 text-neutral-500" />}
+                    className="w-full sm:w-auto"
                   >
-                    <Plus className="w-4 h-4 text-neutral-500" />
                     Add Item to Transfer
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -731,16 +814,15 @@ export function NewTransferPage() {
           </div>
 
           <div className="flex gap-3 w-full sm:w-auto justify-end">
-            <Link
+            <LinkButton
               to="/transfers"
-              className="px-4 py-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 rounded-lg hover:bg-neutral-100 transition"
+              variant="secondary"
             >
               Cancel
-            </Link>
-            <button
+            </LinkButton>
+            <Button
               type="submit"
               disabled={
-                pending ||
                 items.length === 0 ||
                 !sourceLocationId ||
                 !destinationLocationId ||
@@ -748,10 +830,10 @@ export function NewTransferPage() {
                 isAdding ||
                 editingId !== null
               }
-              className="px-6 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm flex items-center gap-2"
+              isLoading={pending}
             >
-              {pending ? 'Dispatching Transfer...' : 'Confirm & Dispatch Transfer'}
-            </button>
+              Confirm & Dispatch Transfer
+            </Button>
           </div>
         </div>
       </form>
