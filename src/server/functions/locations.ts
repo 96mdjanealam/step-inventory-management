@@ -12,6 +12,7 @@ import {
   listLocations,
   listLocationsPaginated,
   listLocationsWithStock,
+  listLocationsWithStockPaginated,
   toggleLocationActive,
   updateLocation,
 } from '../services/locations.ts'
@@ -30,6 +31,11 @@ export const listLocationsWithStockFn = createServerFn({ method: 'GET' })
   .middleware([requireUser])
   .validator(listLocationsSchema)
   .handler(async ({ data }) => listLocationsWithStock(data))
+
+export const listLocationsWithStockPaginatedFn = createServerFn({ method: 'GET' })
+  .middleware([requireUser])
+  .validator(listLocationsPaginatedSchema)
+  .handler(async ({ data }) => listLocationsWithStockPaginated(data))
 
 export const createStoreFn = createServerFn({ method: 'POST' })
   .middleware([requireAdmin])

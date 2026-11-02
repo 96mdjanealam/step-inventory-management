@@ -13,7 +13,7 @@ export interface FilterToolbarProps {
 export function FilterToolbar({ children, className = '' }: FilterToolbarProps) {
   return (
     <div
-      className={`bg-white p-3 sm:p-3.5 rounded-xl border border-neutral-200 shadow-2xs mb-4 flex flex-wrap items-center gap-3 ${className}`}
+      className={`bg-white p-3 sm:p-3.5 border border-neutral-200 shadow-2xs mb-4 flex flex-wrap items-center gap-3 ${className}`}
     >
       {children}
     </div>
@@ -149,13 +149,13 @@ export function SearchInput({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full h-10 pl-9 pr-8 rounded-lg border border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition shadow-2xs disabled:bg-neutral-100 disabled:cursor-not-allowed ${inputClassName}`}
+          className={`w-full h-10 pl-9 pr-8 border border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition shadow-2xs disabled:bg-neutral-100 disabled:cursor-not-allowed ${inputClassName}`}
         />
         {query && !disabled && (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition cursor-pointer"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition cursor-pointer"
             title="Clear search"
           >
             <X className="w-3.5 h-3.5" />
@@ -167,7 +167,7 @@ export function SearchInput({
         <button
           type="submit"
           disabled={disabled}
-          className="h-10 px-3.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-sm font-medium transition cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+          className="h-10 px-3.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-sm font-medium transition cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
         >
           {submitButtonText}
         </button>

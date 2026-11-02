@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, AlertCircle, Package, Plus, Image as ImageIcon } from 'lucide-react'
-import { Button, LinkButton } from '../../../components/Button.tsx'
+import { Button, LinkButton, SmallButton } from '../../../components/Button.tsx'
 import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
@@ -176,16 +176,52 @@ function NewSalePage() {
     setIsAdding(false)
     setEditingId(item.id)
     setDraftError(null)
-    setDraftVariantItem(null)
     setDraft({
       productId: item.productId,
       variantId: item.variantId,
       quantity: item.quantity,
     })
+    const existingInfo = getVariantInfo(item.variantId)
+    if (existingInfo) {
+      setDraftVariantItem({
+        id: item.variantId,
+        productId: existingInfo.productId,
+        productName: existingInfo.productName,
+        unit: existingInfo.unit,
+        measurementType: existingInfo.measurementType,
+        variantId: item.variantId,
+        sku: existingInfo.sku,
+        attributes: existingInfo.attributes,
+        variantImage: existingInfo.image,
+        quantity: existingInfo.availableStock,
+        price: existingInfo.price,
+      })
+    } else {
+      setDraftVariantItem(null)
+    }
     if (locationId) {
       try {
         const inv = await getStoreInventory({ data: { locationId } })
         setStoreInventory(inv)
+        const row = inv.find((i) => i.variantId === item.variantId)
+        if (row) {
+          setDraftVariantItem({
+            id: row.id,
+            productId: row.productId,
+            productName: row.productName,
+            category: row.category,
+            measurementType: row.measurementType,
+            unit: row.unit,
+            productImages: row.productImages,
+            variantId: row.variantId,
+            sku: row.sku,
+            attributes: row.attributes as Record<string, string>,
+            variantImage: row.variantImage,
+            quantity: row.quantity,
+            price: row.price,
+            regularPrice: row.regularPrice,
+          })
+        }
       } catch (err) {
         console.error('Failed to refresh store inventory:', err)
       }
@@ -217,14 +253,15 @@ function NewSalePage() {
     setDraft((prev) => ({
       ...prev,
       variantId: newVariantId,
-      quantity: '1',
+      quantity: prev.variantId === newVariantId ? prev.quantity : '1',
     }))
     setDraftVariantItem(variantItem || null)
     setDraftError(null)
 
     if (variantItem) {
       setStoreInventory((prev) => {
-        const idx = prev.findIndex((i) => i.variantId === variantItem.variantId)
+        const targetId = variantItem.variantId || variantItem.id
+        const idx = prev.findIndex((i) => i.variantId === targetId)
         if (idx >= 0) {
           const updated = [...prev]
           updated[idx] = {
@@ -249,7 +286,7 @@ function NewSalePage() {
             measurementType: variantItem.measurementType || 'count',
             unit: variantItem.unit || 'piece',
             productImages: variantItem.productImages || [],
-            variantId: variantItem.variantId,
+            variantId: targetId,
             sku: variantItem.sku || null,
             attributes: variantItem.attributes || {},
             variantImage: variantItem.variantImage || null,
@@ -301,10 +338,11 @@ function NewSalePage() {
       .reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)
 
     const totalNeeded = otherUsage + qtyNum
-    const available = Number(info.availableStock)
+    const effectiveStock = draftVariantItem?.quantity ?? info.availableStock
+    const available = Number(effectiveStock)
     if (totalNeeded > available) {
       setDraftError(
-        `Quantity exceeds available stock (${info.availableStock} ${info.unit} in stock).`,
+        `Quantity exceeds available stock (${effectiveStock} ${info.unit} in stock).`,
       )
       return
     }
@@ -459,17 +497,17 @@ function NewSalePage() {
   // Component rendering the 2-sided Add / Edit Builder Row
   const renderBuilderRow = (mode: 'add' | 'edit') => {
     return (
-      <div className="p-4 rounded-xl border-2 border-neutral-800 bg-neutral-50/90 shadow-sm space-y-3 animate-in fade-in duration-150">
+      <div className="p-4 border-2 border-neutral-800 bg-neutral-50/90 shadow-sm space-y-3 animate-in fade-in duration-150">
         <div className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-neutral-800 font-semibold">
-            <span className="w-2 h-2 rounded-full bg-neutral-900"></span>
+            <span className="w-2 h-2 bg-neutral-900"></span>
             {mode === 'edit' ? 'Edit Item' : 'Configure New Item'}
           </span>
           {draftInfo && (
             <span className="text-xs text-neutral-600 font-normal">
               Available at Store:{' '}
               <strong className="text-emerald-700">
-                {draftInfo.availableStock} {draftInfo.unit}
+                {draftVariantItem?.quantity ?? draftInfo.availableStock} {draftInfo.unit}
               </strong>
             </span>
           )}
@@ -507,6 +545,7 @@ function NewSalePage() {
                     : '-- Choose Variant --'
                 }
                 disabled={!draft.productId}
+                initialVariant={draftVariantItem}
               />
             </div>
           </div>
@@ -521,18 +560,18 @@ function NewSalePage() {
                 type="number"
                 step={isDraftCount ? '1' : '0.001'}
                 min={isDraftCount ? '1' : '0.001'}
-                max={draftInfo ? draftInfo.availableStock : undefined}
+                max={draftVariantItem?.quantity ?? draftInfo?.availableStock ?? undefined}
                 value={draft.quantity}
                 onChange={(e) =>
                   setDraft((prev) => ({ ...prev, quantity: e.target.value }))
                 }
                 disabled={!draft.variantId}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium focus:outline-none focus:border-neutral-900 bg-white text-neutral-900 disabled:opacity-50"
+                className="w-full border border-neutral-300 px-3 py-2 text-sm font-medium focus:outline-none focus:border-neutral-900 bg-white text-neutral-900 disabled:opacity-50"
               />
             </div>
 
             {/* Price & Subtotal */}
-            <div className="flex items-center justify-between px-3 py-2 bg-neutral-100/80 rounded-lg border border-neutral-200">
+            <div className="flex items-center justify-between px-3 py-2 bg-neutral-100/80 border border-neutral-200">
               <div className="text-xs text-neutral-500">
                 Unit Price:{' '}
                 <span className="font-semibold text-neutral-800">
@@ -546,27 +585,27 @@ function NewSalePage() {
 
             {/* Action buttons */}
             <div className="flex items-center justify-end gap-2 pt-1">
-              <button
+              <SmallButton
                 type="button"
+                variant="outline"
                 onClick={handleCancelDraft}
-                className="px-3.5 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-100 transition"
               >
                 Cancel
-              </button>
-              <button
+              </SmallButton>
+              <SmallButton
                 type="button"
+                variant="primary"
                 onClick={handleSaveDraft}
                 disabled={!draft.variantId || !draft.quantity || Number(draft.quantity) <= 0}
-                className="px-4 py-2 rounded-lg bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-800 disabled:opacity-40 transition shadow-xs"
               >
                 {mode === 'edit' ? 'Update Item' : 'Add Item'}
-              </button>
+              </SmallButton>
             </div>
           </div>
         </div>
 
         {draftError && (
-          <p className="text-xs font-medium text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+          <p className="text-xs font-medium text-rose-600 bg-rose-50 p-2.5 border border-rose-200">
             {draftError}
           </p>
         )}
@@ -581,7 +620,7 @@ function NewSalePage() {
         <div className="flex items-center gap-3">
           <Link
             to="/sales"
-            className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition"
+            className="p-2 border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition"
             title="Back to Sales"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -598,7 +637,7 @@ function NewSalePage() {
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5">
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5">
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
           <div className="font-medium">{error}</div>
         </div>
@@ -606,7 +645,7 @@ function NewSalePage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Step 1: Store Location & Customer Information */}
-        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm space-y-4">
+        <div className="bg-white p-5 border border-neutral-200 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-2.5">
             <div>
               <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
@@ -617,8 +656,8 @@ function NewSalePage() {
               </h2>
             </div>
             {selectedLocation && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-neutral-100 text-neutral-700">
+                <span className="w-2 h-2 bg-emerald-500"></span>
                 {selectedLocation.storeType === 'ownstore' ? 'Company Store' : 'Franchise Store'}
               </span>
             )}
@@ -652,7 +691,7 @@ function NewSalePage() {
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="e.g. John Smith"
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
               />
             </div>
 
@@ -665,14 +704,14 @@ function NewSalePage() {
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 placeholder="e.g. +1 555-0199"
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
               />
             </div>
           </div>
         </div>
 
         {/* Step 2: Order Items */}
-        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm space-y-4">
+        <div className="bg-white p-5 border border-neutral-200 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <div>
               <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
@@ -688,7 +727,7 @@ function NewSalePage() {
           </div>
 
           {availableProducts.length === 0 ? (
-            <div className="p-8 text-center rounded-lg border border-dashed border-amber-200 bg-amber-50/50">
+            <div className="p-8 text-center border border-dashed border-amber-200 bg-amber-50/50">
               <Package className="w-8 h-8 mx-auto text-amber-500 mb-2" />
               <h3 className="text-sm font-semibold text-amber-900">
                 No Stock Available at {selectedLocation?.name || 'This Location'}
@@ -701,7 +740,7 @@ function NewSalePage() {
             <div className="space-y-3">
               {/* Summary table of committed items */}
               {items.length > 0 && (
-                <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+                <div className="overflow-x-auto border border-neutral-200 bg-white">
                   <table className="w-full text-left text-sm">
                     <thead className="border-b bg-neutral-50 text-xs font-semibold text-neutral-600 uppercase">
                       <tr>
@@ -738,7 +777,7 @@ function NewSalePage() {
                             {/* Product & Variant with Thumbnail */}
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg border border-neutral-200 bg-white flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                <div className="w-10 h-10 border border-neutral-200 bg-white flex-shrink-0 flex items-center justify-center overflow-hidden">
                                   {info?.image ? (
                                     <img
                                       src={info.image}
@@ -790,21 +829,21 @@ function NewSalePage() {
                             {/* Actions: Edit & Delete */}
                             <td className="px-4 py-3 text-right whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5">
-                                <button
+                                <SmallButton
                                   type="button"
+                                  variant="ghost"
                                   onClick={() => handleOpenEdit(item)}
-                                  className="px-2.5 py-1 text-xs font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-md transition"
                                 >
                                   Edit
-                                </button>
-                                <button
+                                </SmallButton>
+                                <SmallButton
                                   type="button"
+                                  variant="danger"
                                   onClick={() => handleRemoveItem(item.id)}
-                                  className="px-2 py-1 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-md transition"
                                   title="Delete item"
                                 >
                                   Delete
-                                </button>
+                                </SmallButton>
                               </div>
                             </td>
                           </tr>
@@ -817,7 +856,7 @@ function NewSalePage() {
 
               {/* Empty state when 0 items added yet and not adding */}
               {items.length === 0 && !isAdding && (
-                <div className="py-8 text-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50">
+                <div className="py-8 text-center border border-dashed border-neutral-300 bg-neutral-50/50">
                   <p className="text-sm text-neutral-500">
                     No items added to this order yet.
                   </p>
@@ -857,13 +896,13 @@ function NewSalePage() {
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="e.g. Paid in cash, customer requested receipt by SMS, etc."
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+              className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
             />
           </div>
         </div>
 
         {/* Order Summary & Submit Bar */}
-        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-white p-5 border border-neutral-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-left w-full sm:w-auto">
             <span className="text-xs font-medium text-neutral-500 block">
               Total Due ({orderSummary.totalItems} item{orderSummary.totalItems === 1 ? '' : 's'})

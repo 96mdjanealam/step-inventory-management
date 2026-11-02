@@ -116,7 +116,7 @@ export function VariantSelect({
   function getThumbnail(v: VariantSelectItem) {
     const src = v.variantImage || v.image || v.productImages?.[0]
     return (
-      <div className="w-8 h-8 rounded border border-neutral-200 bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+      <div className="w-8 h-8 border border-neutral-200 bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
         {src ? (
           <img
             src={src}
@@ -177,7 +177,7 @@ export function VariantSelect({
                 ${Number(v.price).toFixed(2)}
               </span>
               {v.quantity !== undefined && (
-                <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 border border-emerald-200">
                   Stock: {v.quantity} {v.unit}
                 </span>
               )}

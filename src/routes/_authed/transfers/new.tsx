@@ -9,7 +9,7 @@ import {
   Package,
   Plus,
 } from 'lucide-react'
-import { Button, LinkButton } from '../../../components/Button.tsx'
+import { Button, LinkButton, SmallButton } from '../../../components/Button.tsx'
 import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
@@ -215,14 +215,15 @@ function NewTransferPage() {
     setDraft((prev) => ({
       ...prev,
       variantId: newVariantId,
-      quantity: '1',
+      quantity: prev.variantId === newVariantId ? prev.quantity : '1',
     }))
     setDraftVariantItem(variantItem || null)
     setDraftError(null)
 
     if (variantItem) {
       setSourceStock((prev) => {
-        const idx = prev.findIndex((i) => i.variantId === variantItem.variantId)
+        const targetId = variantItem.variantId || variantItem.id
+        const idx = prev.findIndex((i) => i.variantId === targetId)
         if (idx >= 0) {
           const updated = [...prev]
           updated[idx] = {
@@ -246,7 +247,7 @@ function NewTransferPage() {
             measurementType: variantItem.measurementType || 'count',
             unit: variantItem.unit || 'piece',
             productImages: variantItem.productImages || [],
-            variantId: variantItem.variantId,
+            variantId: targetId,
             sku: variantItem.sku || null,
             attributes: variantItem.attributes || {},
             variantImage: variantItem.variantImage || null,
@@ -328,10 +329,11 @@ function NewTransferPage() {
       .reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)
 
     const totalNeeded = otherUsage + qtyNum
-    const available = Number(info.availableStock)
+    const effectiveStock = draftVariantItem?.quantity ?? info.availableStock
+    const available = Number(effectiveStock)
     if (totalNeeded > available) {
       setDraftError(
-        `Quantity exceeds available stock (${info.availableStock} ${info.unit} in stock at source).`,
+        `Quantity exceeds available stock (${effectiveStock} ${info.unit} in stock at source).`,
       )
       return
     }
@@ -423,17 +425,17 @@ function NewTransferPage() {
   // Render the Builder Row (2 sides, vertical within each side)
   function renderBuilderRow(mode: 'add' | 'edit') {
     return (
-      <div className="bg-neutral-50/80 border border-neutral-300 rounded-xl p-4 space-y-4 shadow-xs">
+      <div className="bg-neutral-50/80 border border-neutral-300 p-4 space-y-4 shadow-xs">
         <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
           <span className="text-xs font-bold uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-neutral-900"></span>
+            <span className="w-2 h-2 bg-neutral-900"></span>
             {mode === 'edit' ? 'Edit Transfer Item' : 'Configure New Transfer Item'}
           </span>
           {draftInfo && (
             <span className="text-xs text-neutral-600 font-normal">
               Available at Source:{' '}
               <strong className="text-emerald-700">
-                {draftInfo.availableStock} {draftInfo.unit}
+                {draftVariantItem?.quantity ?? draftInfo.availableStock} {draftInfo.unit}
               </strong>
             </span>
           )}
@@ -471,6 +473,7 @@ function NewTransferPage() {
                     : '-- Choose Variant --'
                 }
                 disabled={!draft.productId}
+                initialVariant={draftVariantItem}
               />
             </div>
           </div>
@@ -485,53 +488,53 @@ function NewTransferPage() {
                 type="number"
                 step={isDraftCount ? '1' : '0.001'}
                 min={isDraftCount ? '1' : '0.001'}
-                max={draftInfo ? draftInfo.availableStock : undefined}
+                max={draftVariantItem?.quantity ?? draftInfo?.availableStock ?? undefined}
                 value={draft.quantity}
                 onChange={(e) =>
                   setDraft((prev) => ({ ...prev, quantity: e.target.value }))
                 }
                 disabled={!draft.variantId}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium focus:outline-none focus:border-neutral-900 bg-white text-neutral-900 disabled:opacity-50"
+                className="w-full border border-neutral-300 px-3 py-2 text-sm font-medium focus:outline-none focus:border-neutral-900 bg-white text-neutral-900 disabled:opacity-50"
               />
             </div>
 
             {/* Available stock card info */}
             {draftInfo && (
-              <div className="flex items-center justify-between px-3 py-2 bg-neutral-100/80 rounded-lg border border-neutral-200">
+              <div className="flex items-center justify-between px-3 py-2 bg-neutral-100/80 border border-neutral-200">
                 <span className="text-xs text-neutral-600">Stock Balance:</span>
                 <span className="text-xs font-bold text-neutral-900">
-                  {draftInfo.availableStock} {draftInfo.unit}
+                  {draftVariantItem?.quantity ?? draftInfo.availableStock} {draftInfo.unit}
                 </span>
               </div>
             )}
 
             {/* Action buttons */}
             <div className="flex items-center justify-end gap-2 pt-1">
-              <button
+              <SmallButton
                 type="button"
+                variant="outline"
                 onClick={handleCancelDraft}
-                className="px-3.5 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-100 transition"
               >
                 Cancel
-              </button>
-              <button
+              </SmallButton>
+              <SmallButton
                 type="button"
+                variant="primary"
                 onClick={handleSaveDraft}
                 disabled={
                   !draft.variantId ||
                   !draft.quantity ||
                   Number(draft.quantity) <= 0
                 }
-                className="px-4 py-2 rounded-lg bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-800 disabled:opacity-40 transition shadow-xs"
               >
                 {mode === 'edit' ? 'Update Item' : 'Add Item'}
-              </button>
+              </SmallButton>
             </div>
           </div>
         </div>
 
         {draftError && (
-          <p className="text-xs font-medium text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+          <p className="text-xs font-medium text-rose-600 bg-rose-50 p-2.5 border border-rose-200">
             {draftError}
           </p>
         )}
@@ -546,7 +549,7 @@ function NewTransferPage() {
         <div className="flex items-center gap-3">
           <Link
             to="/transfers"
-            className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition"
+            className="p-2 border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition"
             title="Back to Transfers"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -563,7 +566,7 @@ function NewTransferPage() {
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5">
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5">
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
           <div className="font-medium">{error}</div>
         </div>
@@ -571,7 +574,7 @@ function NewTransferPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Step 1: Transfer Route */}
-        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm space-y-4">
+        <div className="bg-white p-5 border border-neutral-200 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-2.5">
             <div>
               <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
@@ -582,7 +585,7 @@ function NewTransferPage() {
               </h2>
             </div>
             {sourceLoc && destLoc && (
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700">
+              <span className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium bg-neutral-100 text-neutral-700">
                 <span>{sourceLoc.name}</span>
                 <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
                 <span>{destLoc.name}</span>
@@ -623,7 +626,7 @@ function NewTransferPage() {
         </div>
 
         {/* Step 2: Transfer Items */}
-        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm space-y-4">
+        <div className="bg-white p-5 border border-neutral-200 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <div>
               <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
@@ -639,7 +642,7 @@ function NewTransferPage() {
           </div>
 
           {sourceStock.length === 0 && !stockLoading ? (
-            <div className="p-8 text-center rounded-lg border border-dashed border-amber-200 bg-amber-50/50">
+            <div className="p-8 text-center border border-dashed border-amber-200 bg-amber-50/50">
               <Package className="w-8 h-8 mx-auto text-amber-500 mb-2" />
               <h3 className="text-sm font-semibold text-amber-900">
                 No Stock Available at {sourceLoc?.name || 'Selected Location'}
@@ -652,7 +655,7 @@ function NewTransferPage() {
             <div className="space-y-3">
               {/* Summary table of committed transfer items */}
               {items.length > 0 && (
-                <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+                <div className="overflow-x-auto border border-neutral-200 bg-white">
                   <table className="w-full text-left text-sm">
                     <thead className="border-b bg-neutral-50 text-xs font-semibold text-neutral-600 uppercase">
                       <tr>
@@ -683,7 +686,7 @@ function NewTransferPage() {
                             {/* Product & Variant with Thumbnail */}
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg border border-neutral-200 bg-white flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                <div className="w-10 h-10 border border-neutral-200 bg-white flex-shrink-0 flex items-center justify-center overflow-hidden">
                                   {info?.image ? (
                                     <img
                                       src={info.image}
@@ -730,21 +733,21 @@ function NewTransferPage() {
                             {/* Actions: Edit & Delete */}
                             <td className="px-4 py-3 text-right whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5">
-                                <button
+                                <SmallButton
                                   type="button"
+                                  variant="ghost"
                                   onClick={() => handleOpenEdit(item)}
-                                  className="px-2.5 py-1 text-xs font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-md transition"
                                 >
                                   Edit
-                                </button>
-                                <button
+                                </SmallButton>
+                                <SmallButton
                                   type="button"
+                                  variant="danger"
                                   onClick={() => handleRemoveItem(item.id)}
-                                  className="px-2 py-1 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-md transition"
                                   title="Delete item"
                                 >
                                   Delete
-                                </button>
+                                </SmallButton>
                               </div>
                             </td>
                           </tr>
@@ -757,7 +760,7 @@ function NewTransferPage() {
 
               {/* Empty state when 0 items added yet and not adding */}
               {items.length === 0 && !isAdding && (
-                <div className="py-8 text-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50">
+                <div className="py-8 text-center border border-dashed border-neutral-300 bg-neutral-50/50">
                   <p className="text-sm text-neutral-500">
                     No items added to this transfer yet.
                   </p>
@@ -797,13 +800,13 @@ function NewTransferPage() {
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="e.g. Weekly store replenishment, Seasonal rebalance, Urgent restock..."
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+              className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
             />
           </div>
         </div>
 
         {/* Transfer Summary & Submit Bar */}
-        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-white p-5 border border-neutral-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-left w-full sm:w-auto">
             <span className="text-xs font-medium text-neutral-500 block">
               Total Transfer Items

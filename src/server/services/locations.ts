@@ -1,6 +1,6 @@
-import { and, eq, ilike, or, sql } from 'drizzle-orm'
+import { and, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 import { db } from '../db/index.ts'
-import { inventory, locations } from '../db/schema/index.ts'
+import { inventory, locations, products } from '../db/schema/index.ts'
 import { logActivity } from './activity-logs.ts'
 import type {
   CreateStoreInput,
@@ -177,17 +177,44 @@ export async function listLocationsPaginated(input: ListLocationsPaginatedInput)
   return { items, total, page: input.page, pageSize: input.pageSize }
 }
 
+export interface UnitQuantity {
+  unit: string
+  quantity: string
+}
+
 export async function listLocationsWithStock(input: ListLocationsInput = {}) {
   const items = await listLocations(input)
+  if (items.length === 0) return []
 
-  const stockSummary = await db
-    .select({
-      locationId: inventory.locationId,
-      totalQuantity: sql<string>`coalesce(sum(${inventory.quantity}), 0)::text`,
-      itemCount: sql<number>`count(case when ${inventory.quantity} > 0 then 1 else null end)::int`,
-    })
-    .from(inventory)
-    .groupBy(inventory.locationId)
+  const locationIds = items.map((l) => l.id)
+
+  const [stockSummary, stockByUnit] = await Promise.all([
+    db
+      .select({
+        locationId: inventory.locationId,
+        totalQuantity: sql<string>`coalesce(sum(${inventory.quantity}), 0)::text`,
+        itemCount: sql<number>`count(case when ${inventory.quantity} > 0 then 1 else null end)::int`,
+      })
+      .from(inventory)
+      .where(inArray(inventory.locationId, locationIds))
+      .groupBy(inventory.locationId),
+    db
+      .select({
+        locationId: inventory.locationId,
+        unit: products.unit,
+        totalQuantity: sql<string>`coalesce(sum(${inventory.quantity}), 0)::text`,
+      })
+      .from(inventory)
+      .innerJoin(products, eq(inventory.productId, products.id))
+      .where(
+        and(
+          inArray(inventory.locationId, locationIds),
+          sql`${inventory.quantity} > 0`,
+        ),
+      )
+      .groupBy(inventory.locationId, products.unit)
+      .orderBy(products.unit),
+  ])
 
   const summaryMap = new Map<
     string,
@@ -204,17 +231,117 @@ export async function listLocationsWithStock(input: ListLocationsInput = {}) {
     })
   }
 
+  const unitsMap = new Map<string, UnitQuantity[]>()
+  for (const u of stockByUnit) {
+    const list = unitsMap.get(u.locationId) || []
+    const num = Number(u.totalQuantity)
+    list.push({
+      unit: u.unit,
+      quantity: num.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3,
+      }),
+    })
+    unitsMap.set(u.locationId, list)
+  }
+
   return items.map((loc) => {
     const summary = summaryMap.get(loc.id) ?? {
       totalQuantity: '0',
       itemCount: 0,
     }
+    const units = unitsMap.get(loc.id) ?? []
     return {
       ...loc,
       totalQuantity: summary.totalQuantity,
       itemCount: summary.itemCount,
+      units,
     }
   })
+}
+
+export async function listLocationsWithStockPaginated(
+  input: ListLocationsPaginatedInput,
+) {
+  const { items, total, page, pageSize } = await listLocationsPaginated(input)
+  if (items.length === 0) {
+    return { items: [], total: 0, page, pageSize }
+  }
+
+  const locationIds = items.map((l) => l.id)
+
+  const [stockSummary, stockByUnit] = await Promise.all([
+    db
+      .select({
+        locationId: inventory.locationId,
+        totalQuantity: sql<string>`coalesce(sum(${inventory.quantity}), 0)::text`,
+        itemCount: sql<number>`count(case when ${inventory.quantity} > 0 then 1 else null end)::int`,
+      })
+      .from(inventory)
+      .where(inArray(inventory.locationId, locationIds))
+      .groupBy(inventory.locationId),
+    db
+      .select({
+        locationId: inventory.locationId,
+        unit: products.unit,
+        totalQuantity: sql<string>`coalesce(sum(${inventory.quantity}), 0)::text`,
+      })
+      .from(inventory)
+      .innerJoin(products, eq(inventory.productId, products.id))
+      .where(
+        and(
+          inArray(inventory.locationId, locationIds),
+          sql`${inventory.quantity} > 0`,
+        ),
+      )
+      .groupBy(inventory.locationId, products.unit)
+      .orderBy(products.unit),
+  ])
+
+  const summaryMap = new Map<
+    string,
+    { totalQuantity: string; itemCount: number }
+  >()
+  for (const s of stockSummary) {
+    const num = Number(s.totalQuantity)
+    summaryMap.set(s.locationId, {
+      totalQuantity: num.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3,
+      }),
+      itemCount: s.itemCount,
+    })
+  }
+
+  const unitsMap = new Map<string, UnitQuantity[]>()
+  for (const u of stockByUnit) {
+    const list = unitsMap.get(u.locationId) || []
+    const num = Number(u.totalQuantity)
+    list.push({
+      unit: u.unit,
+      quantity: num.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3,
+      }),
+    })
+    unitsMap.set(u.locationId, list)
+  }
+
+  const enrichedItems = items.map((loc) => {
+    const summary = summaryMap.get(loc.id) ?? {
+      totalQuantity: '0',
+      itemCount: 0,
+    }
+    const units = unitsMap.get(loc.id) ?? []
+    return {
+      ...loc,
+      totalQuantity: summary.totalQuantity,
+      itemCount: summary.itemCount,
+      units,
+    }
+  })
+
+  return { items: enrichedItems, total, page, pageSize }
 }
 
 export async function toggleLocationActive(

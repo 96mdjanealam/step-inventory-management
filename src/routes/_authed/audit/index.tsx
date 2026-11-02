@@ -208,14 +208,14 @@ function AuditPage() {
           <TableCard.Table>
             <TableCard.Header>
               <TableCard.Row isHeader>
-                <TableCard.Head>Date & Time</TableCard.Head>
-                <TableCard.Head align="center">Type</TableCard.Head>
-                <TableCard.Head>Product & SKU</TableCard.Head>
-                <TableCard.Head align="right">Quantity</TableCard.Head>
-                <TableCard.Head>Origin / Destination</TableCard.Head>
-                <TableCard.Head>Reference</TableCard.Head>
-                <TableCard.Head>Reason / Notes</TableCard.Head>
-                <TableCard.Head>Operator</TableCard.Head>
+                <TableCard.Head className="w-24 whitespace-nowrap">Date & Time</TableCard.Head>
+                <TableCard.Head align="center" className="w-20 whitespace-nowrap">Type</TableCard.Head>
+                <TableCard.Head className="min-w-[140px] max-w-[200px]">Product & SKU</TableCard.Head>
+                <TableCard.Head align="right" className="w-24 whitespace-nowrap">Quantity</TableCard.Head>
+                <TableCard.Head className="min-w-[130px] max-w-[170px]">Origin / Destination</TableCard.Head>
+                <TableCard.Head className="w-24 whitespace-nowrap">Reference</TableCard.Head>
+                <TableCard.Head className="min-w-[240px]">Reason / Notes</TableCard.Head>
+                <TableCard.Head className="w-24 whitespace-nowrap">Operator</TableCard.Head>
               </TableCard.Row>
             </TableCard.Header>
             <TableCard.Body>
@@ -239,23 +239,32 @@ function AuditPage() {
 
                   return (
                     <TableCard.Row key={m.id}>
-                      <TableCard.Cell className="text-neutral-500 whitespace-nowrap text-xs">
-                        {new Date(m.createdAt).toLocaleString(undefined, {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })}
+                      <TableCard.Cell className="text-neutral-500 whitespace-nowrap align-top text-xs">
+                        <div className="font-medium text-neutral-800">
+                          {new Date(m.createdAt).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </div>
+                        <div className="text-[11px] text-neutral-400">
+                          {new Date(m.createdAt).toLocaleTimeString(undefined, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
                       </TableCard.Cell>
-                      <TableCard.Cell align="center">
+                      <TableCard.Cell align="center" className="whitespace-nowrap align-top">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider ${
+                          className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
                             badgeStyles[m.type] || 'bg-neutral-100 text-neutral-800'
                           }`}
                         >
                           {m.type}
                         </span>
                       </TableCard.Cell>
-                      <TableCard.Cell className="font-medium text-neutral-900">
-                        <div className="font-semibold text-neutral-900">{m.product.name}</div>
+                      <TableCard.Cell className="font-medium text-neutral-900 min-w-[140px] max-w-[200px] align-top text-xs">
+                        <div className="font-semibold text-neutral-900 leading-tight">{m.product.name}</div>
                         <VariantDisplay
                           variant={{
                             attributes: m.variant.attributes as Record<string, string>,
@@ -263,35 +272,44 @@ function AuditPage() {
                           }}
                         />
                       </TableCard.Cell>
-                      <TableCard.Cell align="right" className="font-semibold text-neutral-900 whitespace-nowrap">
+                      <TableCard.Cell align="right" className="font-semibold text-neutral-900 whitespace-nowrap align-top text-xs">
                         {m.quantity} {m.product.unit}
                       </TableCard.Cell>
-                      <TableCard.Cell className="text-xs">
+                      <TableCard.Cell className="text-xs min-w-[130px] max-w-[170px] align-top">
                         {m.sourceLocation && m.destinationLocation ? (
-                          <div className="font-medium text-neutral-800">
-                            <span>{m.sourceLocation.name}</span>
-                            <span className="text-neutral-400 mx-1.5">&rarr;</span>
-                            <span>{m.destinationLocation.name}</span>
+                          <div className="font-medium text-neutral-800 leading-tight">
+                            <div>{m.sourceLocation.name}</div>
+                            <div className="text-neutral-400 text-[11px] flex items-center gap-1">
+                              <span>&darr;</span>
+                              <span className="text-neutral-700">{m.destinationLocation.name}</span>
+                            </div>
                           </div>
                         ) : m.sourceLocation ? (
-                          <div className="text-neutral-700">
-                            From: <strong>{m.sourceLocation.name}</strong>
+                          <div className="text-neutral-700 leading-tight">
+                            <span className="text-[11px] text-neutral-400 uppercase tracking-wider block">From</span>
+                            <strong>{m.sourceLocation.name}</strong>
                           </div>
                         ) : m.destinationLocation ? (
-                          <div className="text-neutral-700">
-                            To: <strong>{m.destinationLocation.name}</strong>
+                          <div className="text-neutral-700 leading-tight">
+                            <span className="text-[11px] text-neutral-400 uppercase tracking-wider block">To</span>
+                            <strong>{m.destinationLocation.name}</strong>
                           </div>
                         ) : (
                           <span className="text-neutral-400">—</span>
                         )}
                       </TableCard.Cell>
-                      <TableCard.Cell className="font-mono text-xs text-neutral-700 whitespace-nowrap">
+                      <TableCard.Cell className="font-mono text-xs text-neutral-700 whitespace-nowrap align-top">
                         {m.referenceId || '—'}
                       </TableCard.Cell>
-                      <TableCard.Cell className="text-xs text-neutral-600 max-w-xs break-words leading-relaxed">
-                        {m.reason || '—'}
+                      <TableCard.Cell
+                        className="text-xs text-neutral-600 min-w-[240px] max-w-md break-words leading-relaxed align-top"
+                        title={m.reason || undefined}
+                      >
+                        <div className="line-clamp-3 break-words">
+                          {m.reason || '—'}
+                        </div>
                       </TableCard.Cell>
-                      <TableCard.Cell className="text-xs text-neutral-700 whitespace-nowrap">
+                      <TableCard.Cell className="text-xs text-neutral-700 whitespace-nowrap align-top">
                         {m.user?.username || 'System'}
                       </TableCard.Cell>
                     </TableCard.Row>
@@ -306,12 +324,12 @@ function AuditPage() {
           <TableCard.Table>
             <TableCard.Header>
               <TableCard.Row isHeader>
-                <TableCard.Head>Date & Time</TableCard.Head>
-                <TableCard.Head>Action</TableCard.Head>
-                <TableCard.Head>Entity</TableCard.Head>
-                <TableCard.Head>Description</TableCard.Head>
-                <TableCard.Head>Locations</TableCard.Head>
-                <TableCard.Head>Operator</TableCard.Head>
+                <TableCard.Head className="w-24 whitespace-nowrap">Date & Time</TableCard.Head>
+                <TableCard.Head className="w-24 whitespace-nowrap">Action</TableCard.Head>
+                <TableCard.Head className="w-20 whitespace-nowrap">Entity</TableCard.Head>
+                <TableCard.Head className="min-w-[240px]">Description</TableCard.Head>
+                <TableCard.Head className="min-w-[130px] max-w-[170px]">Locations</TableCard.Head>
+                <TableCard.Head className="w-24 whitespace-nowrap">Operator</TableCard.Head>
               </TableCard.Row>
             </TableCard.Header>
             <TableCard.Body>
@@ -323,37 +341,56 @@ function AuditPage() {
               ) : (
                 activityData.items.map((log) => (
                   <TableCard.Row key={log.id}>
-                    <TableCard.Cell className="text-neutral-500 whitespace-nowrap text-xs">
-                      {new Date(log.createdAt).toLocaleString(undefined, {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
+                    <TableCard.Cell className="text-neutral-500 whitespace-nowrap align-top text-xs">
+                      <div className="font-medium text-neutral-800">
+                        {new Date(log.createdAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </div>
+                      <div className="text-[11px] text-neutral-400">
+                        {new Date(log.createdAt).toLocaleTimeString(undefined, {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
                     </TableCard.Cell>
-                    <TableCard.Cell>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-neutral-100 text-neutral-800">
+                    <TableCard.Cell className="whitespace-nowrap align-top">
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-mono font-medium bg-neutral-100 text-neutral-800">
                         {log.action}
                       </span>
                     </TableCard.Cell>
-                    <TableCard.Cell className="text-xs font-mono capitalize text-neutral-600 whitespace-nowrap">
+                    <TableCard.Cell className="text-xs font-mono capitalize text-neutral-600 whitespace-nowrap align-top">
                       {log.entityType}
                     </TableCard.Cell>
-                    <TableCard.Cell className="text-neutral-900 text-xs max-w-md break-words leading-relaxed">
+                    <TableCard.Cell className="text-neutral-900 text-xs min-w-[240px] max-w-lg break-words leading-relaxed align-top">
                       {log.description}
                     </TableCard.Cell>
-                    <TableCard.Cell className="text-xs">
+                    <TableCard.Cell className="text-xs min-w-[130px] max-w-[170px] align-top">
                       {log.sourceLocation && log.destinationLocation ? (
-                        <div>
-                          {log.sourceLocation.name} &rarr; {log.destinationLocation.name}
+                        <div className="font-medium text-neutral-800 leading-tight">
+                          <div>{log.sourceLocation.name}</div>
+                          <div className="text-neutral-400 text-[11px] flex items-center gap-1">
+                            <span>&darr;</span>
+                            <span className="text-neutral-700">{log.destinationLocation.name}</span>
+                          </div>
                         </div>
                       ) : log.sourceLocation ? (
-                        log.sourceLocation.name
+                        <div className="text-neutral-700 leading-tight">
+                          <span className="text-[11px] text-neutral-400 uppercase tracking-wider block">Source</span>
+                          <strong>{log.sourceLocation.name}</strong>
+                        </div>
                       ) : log.destinationLocation ? (
-                        log.destinationLocation.name
+                        <div className="text-neutral-700 leading-tight">
+                          <span className="text-[11px] text-neutral-400 uppercase tracking-wider block">Destination</span>
+                          <strong>{log.destinationLocation.name}</strong>
+                        </div>
                       ) : (
                         '—'
                       )}
                     </TableCard.Cell>
-                    <TableCard.Cell className="text-xs text-neutral-700 whitespace-nowrap">
+                    <TableCard.Cell className="text-xs text-neutral-700 whitespace-nowrap align-top">
                       {log.user?.username || 'System'}
                     </TableCard.Cell>
                   </TableCard.Row>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, Search, X, Loader2, Check } from 'lucide-react'
 import { DropdownPagination } from './DropdownPagination.tsx'
 
@@ -51,6 +51,10 @@ export function PaginatedSelect<T>({
 
   const containerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const fetcherRef = useRef(fetcher)
+  fetcherRef.current = fetcher
+  const getItemValueRef = useRef(getItemValue)
+  getItemValueRef.current = getItemValue
 
   // Update selectedItem if initialSelectedItem changes
   useEffect(() => {
@@ -58,6 +62,13 @@ export function PaginatedSelect<T>({
       setSelectedItem(initialSelectedItem)
     }
   }, [initialSelectedItem])
+
+  // Sync selectedItem if value is cleared from outside
+  useEffect(() => {
+    if (!value) {
+      setSelectedItem(null)
+    }
+  }, [value])
 
   // Debounce search input
   useEffect(() => {
@@ -75,41 +86,52 @@ export function PaginatedSelect<T>({
     setDebouncedSearch('')
   }, [reloadTrigger])
 
-  // Fetch items whenever page, debouncedSearch, or reloadTrigger changes (and when dropdown is opened)
-  const loadData = useCallback(async () => {
-    if (disabled) return
+  // Fetch items whenever dropdown is open and page, debouncedSearch, or reloadTrigger changes
+  useEffect(() => {
+    if (!isOpen || disabled) return
+
+    let cancelled = false
     setLoading(true)
     setError(null)
-    try {
-      const res = await fetcher({
+
+    fetcherRef
+      .current({
         page,
         pageSize: 10,
         search: debouncedSearch.trim(),
       })
-      setItems(res.items || [])
-      setTotal(res.total || 0)
+      .then((res) => {
+        if (cancelled) return
+        const loadedItems = res.items || []
+        setItems(loadedItems)
+        setTotal(res.total || 0)
 
-      // If value is set but selectedItem is null, try finding it in current items
-      if (value && !selectedItem) {
-        const found = (res.items || []).find((i) => getItemValue(i) === value)
-        if (found) {
-          setSelectedItem(found)
+        // If value is set, find the item to ensure selectedItem label is available
+        if (value) {
+          const found = loadedItems.find(
+            (i) => getItemValueRef.current(i) === value,
+          )
+          if (found) {
+            setSelectedItem(found)
+          }
         }
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load data')
-      setItems([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [disabled, fetcher, page, debouncedSearch, reloadTrigger, value, selectedItem, getItemValue])
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'Failed to load data')
+        setItems([])
+        setTotal(0)
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      })
 
-  useEffect(() => {
-    if (isOpen) {
-      loadData()
+    return () => {
+      cancelled = true
     }
-  }, [isOpen, loadData])
+  }, [isOpen, disabled, page, debouncedSearch, reloadTrigger, value])
 
   // Focus search input when opened
   useEffect(() => {
@@ -146,7 +168,7 @@ export function PaginatedSelect<T>({
   }, [isOpen])
 
   function handleSelect(item: T) {
-    const itemVal = getItemValue(item)
+    const itemVal = getItemValueRef.current(item)
     setSelectedItem(item)
     onChange(itemVal, item)
     setIsOpen(false)
@@ -160,16 +182,31 @@ export function PaginatedSelect<T>({
 
   // Find if currently selected item is in the loaded page
   const currentItem =
-    selectedItem || items.find((i) => getItemValue(i) === value) || null
+    selectedItem ||
+    items.find((i) => getItemValueRef.current(i) === value) ||
+    null
 
   return (
     <div ref={containerRef} className={`relative w-full ${className}`}>
       {/* Trigger Button */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full min-h-10 px-3 py-2 text-left bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 focus:outline-none focus:border-neutral-900 flex items-center justify-between gap-2 shadow-2xs hover:bg-neutral-50/50 transition disabled:opacity-50 disabled:bg-neutral-100 disabled:cursor-not-allowed"
+      <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        onClick={() => {
+          if (!disabled) setIsOpen(!isOpen)
+        }}
+        onKeyDown={(e) => {
+          if (disabled) return
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+            e.preventDefault()
+            setIsOpen(true)
+          }
+        }}
+        className={`w-full min-h-10 px-3 py-2 text-left bg-white border border-neutral-300 text-sm text-neutral-900 focus:outline-none focus:border-neutral-900 flex items-center justify-between gap-2 shadow-2xs hover:bg-neutral-50/50 transition cursor-pointer select-none ${
+          disabled ? 'opacity-50 bg-neutral-100 cursor-not-allowed' : ''
+        }`}
       >
         <div className="flex-1 min-w-0">
           {renderSelected ? (
@@ -188,7 +225,7 @@ export function PaginatedSelect<T>({
             <button
               type="button"
               onClick={handleClear}
-              className="p-0.5 rounded hover:bg-neutral-200 text-neutral-400 hover:text-neutral-700 transition"
+              className="p-0.5 hover:bg-neutral-200 text-neutral-400 hover:text-neutral-700 transition"
               title="Clear selection"
             >
               <X className="w-3.5 h-3.5" />
@@ -200,11 +237,11 @@ export function PaginatedSelect<T>({
             }`}
           />
         </div>
-      </button>
+      </div>
 
       {/* Popover Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden animate-in fade-in-50 duration-100 flex flex-col max-h-80">
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-neutral-200 shadow-lg overflow-hidden animate-in fade-in-50 duration-100 flex flex-col max-h-80">
           {/* Search Box */}
           <div className="p-2 border-b border-neutral-100 bg-neutral-50/50">
             <div className="relative">
@@ -215,7 +252,7 @@ export function PaginatedSelect<T>({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-neutral-200 rounded-md focus:outline-none focus:border-neutral-900 placeholder:text-neutral-400"
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-neutral-200 focus:outline-none focus:border-neutral-900 placeholder:text-neutral-400"
               />
               {search && (
                 <button
@@ -246,7 +283,7 @@ export function PaginatedSelect<T>({
               </div>
             ) : (
               items.map((item) => {
-                const itemVal = getItemValue(item)
+                const itemVal = getItemValueRef.current(item)
                 const isSelected = itemVal === value
 
                 return (

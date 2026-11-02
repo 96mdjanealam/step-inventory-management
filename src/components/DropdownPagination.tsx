@@ -53,7 +53,7 @@ export function DropdownPagination({
             onPageChange(Math.max(1, page - 1))
           }}
           disabled={page <= 1 || loading}
-          className="p-1 rounded hover:bg-neutral-200/70 disabled:opacity-30 disabled:hover:bg-transparent text-neutral-700 transition"
+          className="p-1 hover:bg-neutral-200/70 disabled:opacity-30 disabled:hover:bg-transparent text-neutral-700 transition"
           title="Previous page"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
@@ -65,7 +65,7 @@ export function DropdownPagination({
             onPageChange(Math.min(totalPages, page + 1))
           }}
           disabled={page >= totalPages || loading}
-          className="p-1 rounded hover:bg-neutral-200/70 disabled:opacity-30 disabled:hover:bg-transparent text-neutral-700 transition"
+          className="p-1 hover:bg-neutral-200/70 disabled:opacity-30 disabled:hover:bg-transparent text-neutral-700 transition"
           title="Next page"
         >
           <ChevronRight className="w-3.5 h-3.5" />

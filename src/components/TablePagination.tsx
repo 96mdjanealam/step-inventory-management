@@ -67,7 +67,7 @@ export function TablePagination({
                 onPageChange(1)
               }}
               disabled={disabled}
-              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-800 focus:border-neutral-900 focus:outline-none disabled:opacity-50"
+              className="border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-800 focus:border-neutral-900 focus:outline-none disabled:opacity-50"
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -86,7 +86,7 @@ export function TablePagination({
           type="button"
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1 || disabled}
-          className="inline-flex items-center justify-center p-1.5 rounded-md border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          className="inline-flex items-center justify-center p-1.5 border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
           title="Previous page"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -114,7 +114,7 @@ export function TablePagination({
                 type="button"
                 onClick={() => onPageChange(pageNum)}
                 disabled={disabled}
-                className={`min-w-8 h-8 px-2 flex items-center justify-center rounded-md text-xs font-medium transition ${
+                className={`min-w-8 h-8 px-2 flex items-center justify-center text-xs font-medium transition ${
                   isActive
                     ? 'bg-neutral-900 text-white font-semibold shadow-xs'
                     : 'text-neutral-700 hover:bg-neutral-100'
@@ -130,7 +130,7 @@ export function TablePagination({
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages || disabled}
-          className="inline-flex items-center justify-center p-1.5 rounded-md border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          className="inline-flex items-center justify-center p-1.5 border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
           title="Next page"
         >
           <ChevronRight className="w-4 h-4" />

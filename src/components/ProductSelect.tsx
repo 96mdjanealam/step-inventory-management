@@ -66,7 +66,7 @@ export function ProductSelect({
   function getThumbnail(p: ProductSelectItem) {
     const src = p.variantImage || p.images?.[0]
     return (
-      <div className="w-8 h-8 rounded border border-neutral-200 bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+      <div className="w-8 h-8 border border-neutral-200 bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
         {src ? (
           <img
             src={src}

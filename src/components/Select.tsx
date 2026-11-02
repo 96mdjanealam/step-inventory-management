@@ -158,7 +158,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           type="button"
           disabled={disabled}
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-full text-left bg-white border border-neutral-300 rounded-lg text-neutral-900 focus:outline-none focus:border-neutral-900 flex items-center justify-between gap-2 shadow-2xs hover:bg-neutral-50/50 transition cursor-pointer disabled:opacity-50 disabled:bg-neutral-100 disabled:cursor-not-allowed ${
+          className={`w-full text-left bg-white border border-neutral-300 text-neutral-900 focus:outline-none focus:border-neutral-900 flex items-center justify-between gap-2 shadow-2xs hover:bg-neutral-50/50 transition cursor-pointer disabled:opacity-50 disabled:bg-neutral-100 disabled:cursor-not-allowed ${
             isSm ? 'min-h-8 px-2.5 py-1 text-xs' : 'min-h-10 px-3 py-2 text-sm'
           }`}
         >
@@ -181,7 +181,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
 
         {/* Popover Dropdown Menu styled identically to PaginatedSelect */}
         {isOpen && (
-          <div className="absolute z-50 left-0 right-0 top-full mt-1 min-w-[140px] bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden animate-in fade-in-50 duration-100 flex flex-col max-h-60">
+          <div className="absolute z-50 left-0 right-0 top-full mt-1 min-w-[140px] bg-white border border-neutral-200 shadow-lg overflow-hidden animate-in fade-in-50 duration-100 flex flex-col max-h-60">
             <div className="overflow-y-auto divide-y divide-neutral-50 py-1">
               {parsedOptions.length === 0 ? (
                 <div className="py-4 text-center text-xs text-neutral-400">

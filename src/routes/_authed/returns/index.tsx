@@ -103,17 +103,17 @@ function ReturnsPage() {
         <TableCard.Table>
           <TableCard.Header>
             <TableCard.Row isHeader>
-              <TableCard.Head>Return #</TableCard.Head>
-              <TableCard.Head>Original Order</TableCard.Head>
-              <TableCard.Head className="min-w-[280px]">
+              <TableCard.Head className="w-24 whitespace-nowrap">Return #</TableCard.Head>
+              <TableCard.Head className="w-28 whitespace-nowrap">Original Order</TableCard.Head>
+              <TableCard.Head className="min-w-[170px] max-w-[220px]">
                 Returned Item Details
               </TableCard.Head>
-              <TableCard.Head>Date & Time</TableCard.Head>
-              <TableCard.Head>Store Location</TableCard.Head>
-              <TableCard.Head className="min-w-[260px]">Reason</TableCard.Head>
-              <TableCard.Head align="right">Refund Amount</TableCard.Head>
-              <TableCard.Head>Authorized By</TableCard.Head>
-              <TableCard.Head align="right">Actions</TableCard.Head>
+              <TableCard.Head className="w-28 whitespace-nowrap">Date & Time</TableCard.Head>
+              <TableCard.Head className="max-w-[130px]">Store Location</TableCard.Head>
+              <TableCard.Head className="min-w-[150px] max-w-[200px]">Reason</TableCard.Head>
+              <TableCard.Head align="right" className="w-24 whitespace-nowrap">Refund Amount</TableCard.Head>
+              <TableCard.Head className="w-28 whitespace-nowrap">Authorized By</TableCard.Head>
+              <TableCard.Head align="right" className="w-24 whitespace-nowrap">Actions</TableCard.Head>
             </TableCard.Row>
           </TableCard.Header>
           <TableCard.Body>
@@ -150,10 +150,10 @@ function ReturnsPage() {
 
                 return (
                   <TableCard.Row key={ret.id}>
-                    <TableCard.Cell className="font-mono font-medium text-amber-700 whitespace-nowrap align-top">
+                    <TableCard.Cell className="font-mono font-medium text-amber-700 whitespace-nowrap align-top text-xs">
                       {ret.returnNumber}
                     </TableCard.Cell>
-                    <TableCard.Cell className="font-mono whitespace-nowrap align-top">
+                    <TableCard.Cell className="font-mono whitespace-nowrap align-top text-xs">
                       <Link
                         to="/sales/$saleId"
                         params={{ saleId: ret.saleId }}
@@ -163,7 +163,7 @@ function ReturnsPage() {
                       </Link>
                     </TableCard.Cell>
                     <TableCard.Cell
-                      className="min-w-[280px] max-w-md align-top"
+                      className="min-w-[170px] max-w-[220px] align-top"
                       title={returnedItemsTooltip || undefined}
                     >
                       {ret.items && ret.items.length > 0 ? (
@@ -179,7 +179,7 @@ function ReturnsPage() {
 
                             return (
                               <div key={idx} className="text-xs">
-                                <div className="font-semibold text-neutral-900">
+                                <div className="font-semibold text-neutral-900 leading-tight">
                                   {item.productName}{' '}
                                   <span className="font-normal text-neutral-500">
                                     ({item.quantity} {item.unit})
@@ -204,19 +204,30 @@ function ReturnsPage() {
                       )}
                     </TableCard.Cell>
                     <TableCard.Cell className="text-neutral-500 whitespace-nowrap align-top">
-                      {new Date(ret.createdAt).toLocaleString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </TableCard.Cell>
-                    <TableCard.Cell className="font-medium text-neutral-900 whitespace-nowrap align-top">
-                      {ret.locationName}
+                      <div className="text-xs text-neutral-800">
+                        {new Date(ret.createdAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </div>
+                      <div className="text-[11px] text-neutral-400">
+                        {new Date(ret.createdAt).toLocaleTimeString(undefined, {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
                     </TableCard.Cell>
                     <TableCard.Cell
-                      className="text-neutral-700 min-w-[260px] max-w-md align-top"
+                      className="font-medium text-neutral-900 align-top max-w-[130px]"
+                      title={ret.locationName}
+                    >
+                      <div className="text-xs line-clamp-2 break-words leading-tight">
+                        {ret.locationName}
+                      </div>
+                    </TableCard.Cell>
+                    <TableCard.Cell
+                      className="text-neutral-700 min-w-[150px] max-w-[200px] align-top"
                       title={ret.reason || undefined}
                     >
                       <div className="line-clamp-3 text-xs leading-relaxed break-words">
@@ -225,11 +236,11 @@ function ReturnsPage() {
                     </TableCard.Cell>
                     <TableCard.Cell
                       align="right"
-                      className="font-semibold text-rose-600 whitespace-nowrap align-top"
+                      className="font-semibold text-rose-600 whitespace-nowrap align-top text-xs"
                     >
                       -${Number(ret.totalRefundAmount).toFixed(2)}
                     </TableCard.Cell>
-                    <TableCard.Cell className="text-neutral-700 whitespace-nowrap align-top">
+                    <TableCard.Cell className="text-neutral-700 whitespace-nowrap align-top text-xs">
                       {ret.processedByUsername || 'Staff'}
                     </TableCard.Cell>
                     <TableCard.Cell
@@ -240,7 +251,7 @@ function ReturnsPage() {
                         to="/sales/$saleId"
                         params={{ saleId: ret.saleId }}
                       >
-                        View Sale Order
+                        View Order
                       </TableActionLink>
                     </TableCard.Cell>
                   </TableCard.Row>

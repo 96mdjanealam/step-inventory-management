@@ -12,7 +12,7 @@ export interface TableCardProps {
 export function TableCard({ children, className = '' }: TableCardProps) {
   return (
     <div
-      className={`bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden ${className}`}
+      className={`bg-white border border-neutral-200 shadow-xs overflow-hidden ${className}`}
     >
       {children}
     </div>
@@ -35,12 +35,14 @@ export interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> 
 
 export function Table({ children, className = '', ...props }: TableProps) {
   return (
-    <table
-      className={`w-full text-left text-sm text-neutral-600 ${className}`}
-      {...props}
-    >
-      {children}
-    </table>
+    <div className="w-full overflow-x-auto">
+      <table
+        className={`w-full text-left text-sm text-neutral-600 ${className}`}
+        {...props}
+      >
+        {children}
+      </table>
+    </div>
   )
 }
 

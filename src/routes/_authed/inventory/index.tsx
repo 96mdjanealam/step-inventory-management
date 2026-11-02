@@ -5,8 +5,9 @@ import { Plus } from 'lucide-react'
 import { z } from 'zod'
 import {
   Button,
+  SmallButton,
+  SmallLinkButton,
   TableActionButton,
-  TableActionLink,
 } from '../../../components/Button.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
@@ -27,6 +28,7 @@ import {
   createStoreFn,
   listLocationsFn,
   listLocationsWithStockFn,
+  listLocationsWithStockPaginatedFn,
   toggleLocationActiveFn,
   updateLocationFn,
 } from '../../../server/functions/locations.ts'
@@ -84,17 +86,27 @@ export const Route = createFileRoute('/_authed/inventory/')({
         allLocations,
         selectedLocation,
         activeProducts,
+        facilitiesWithStock: [],
+        storesData: { items: [], total: 0, page: 1, pageSize: 10 },
         locationsWithStock: [],
       }
     }
 
-    // Otherwise, overview mode: load all locations with stock summaries
-    const [locationsWithStock, allLocations] = await Promise.all([
+    // Otherwise, overview mode: load primary facilities (independent of search) and paginated stores
+    const [facilitiesWithStock, storesData, allLocations] = await Promise.all([
       listLocationsWithStockFn({
         data: {
           includeInactive: true,
+        },
+      }),
+      listLocationsWithStockPaginatedFn({
+        data: {
+          includeInactive: true,
+          type: 'store',
           search: deps.search,
           storeType: deps.storeType,
+          page: deps.page,
+          pageSize: deps.pageSize,
         },
       }),
       listLocationsFn({ data: { includeInactive: false } }),
@@ -102,7 +114,9 @@ export const Route = createFileRoute('/_authed/inventory/')({
 
     return {
       mode: 'overview' as const,
-      locationsWithStock,
+      facilitiesWithStock,
+      storesData,
+      locationsWithStock: facilitiesWithStock,
       allLocations,
       selectedLocation: null,
       inventoryData: { items: [], total: 0, page: 1, pageSize: 20 },
@@ -114,7 +128,7 @@ export const Route = createFileRoute('/_authed/inventory/')({
 
 function InventoryPage() {
   const loaderData = Route.useLoaderData()
-  const { search, locationId, storeType, includeZeroQuantity } =
+  const { search, locationId, storeType, includeZeroQuantity, page = 1, pageSize = 10 } =
     Route.useSearch()
   const { user } = Route.useRouteContext()
   const navigate = Route.useNavigate()
@@ -177,19 +191,6 @@ function InventoryPage() {
     [loaderData.activeProducts, selectedProductId],
   )
 
-  const stores = useMemo(() => {
-    let list = loaderData.locationsWithStock.filter((l) => l.type === 'store')
-    if (search) {
-      const q = search.toLowerCase()
-      list = list.filter(
-        (l) =>
-          l.name.toLowerCase().includes(q) ||
-          (l.address && l.address.toLowerCase().includes(q)) ||
-          (l.phone && l.phone.toLowerCase().includes(q)),
-      )
-    }
-    return list
-  }, [loaderData.locationsWithStock, search])
 
   // ===================== HANDLERS: OVERVIEW =====================
   function handleOverviewSearchQuery(val: string) {
@@ -535,7 +536,7 @@ function InventoryPage() {
         </div>
 
         {/* Location Header Banner */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
+        <div className="border border-neutral-200 bg-white p-5 shadow-xs">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="flex items-center gap-3">
@@ -544,7 +545,7 @@ function InventoryPage() {
                 </h1>
                 {loc ? (
                   <span
-                    className={`rounded px-2.5 py-0.5 text-xs font-semibold ${
+                    className={`px-2.5 py-0.5 text-xs font-semibold ${
                       loc.type === 'warehouse'
                         ? 'bg-blue-100 text-blue-800'
                         : loc.type === 'damaged'
@@ -564,7 +565,7 @@ function InventoryPage() {
                   </span>
                 ) : null}
                 <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  className={`inline-flex items-center px-2 py-0.5 text-xs font-medium ${
                     loc?.isActive
                       ? 'bg-green-50 text-green-700 ring-1 ring-green-600/20'
                       : 'bg-gray-100 text-gray-600 ring-1 ring-gray-500/20'
@@ -594,7 +595,7 @@ function InventoryPage() {
                 </Button>
               </div>
             ) : (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <div className="border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                 Damaged stock intake and resolution are managed via the{' '}
                 <Link to="/damage" className="font-semibold underline">
                   Damaged Stock Module
@@ -628,7 +629,7 @@ function InventoryPage() {
                     }),
                   })
                 }
-                className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                className="border-neutral-300 text-neutral-900 focus:ring-neutral-900"
               />
               Show 0-balance items
             </label>
@@ -694,7 +695,7 @@ function InventoryPage() {
                       </TableCard.Cell>
 
                       <TableCard.Cell className="whitespace-nowrap">
-                        <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                        <span className="bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                           {item.product.unit}
                         </span>
                       </TableCard.Cell>
@@ -767,7 +768,7 @@ function InventoryPage() {
         {/* MODAL 1: RECEIVE STOCK (INFLOW) */}
         {showInflowModal ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div className="w-full max-w-lg bg-white p-6 shadow-xl border border-neutral-300">
               <h3 className="mb-1 text-lg font-semibold text-gray-900">
                 Receive Stock
               </h3>
@@ -779,7 +780,7 @@ function InventoryPage() {
               </p>
 
               {inflowError ? (
-                <p className="mb-3 rounded bg-red-50 p-2.5 text-xs text-red-600">
+                <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
                   {inflowError}
                 </p>
               ) : null}
@@ -837,7 +838,7 @@ function InventoryPage() {
                           ? 'e.g. 25'
                           : 'e.g. 12.500'
                       }
-                      className="w-full rounded border px-3 py-2 pr-16 text-sm"
+                      className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm"
                     />
                     <span className="pointer-events-none absolute right-3 text-xs font-semibold text-gray-500">
                       {activeProduct?.unit}
@@ -857,7 +858,7 @@ function InventoryPage() {
                   <input
                     name="reason"
                     placeholder="e.g. Supplier PO #1002 or Invoice #5541"
-                    className="rounded border px-3 py-2 text-sm"
+                    className="border border-neutral-300 px-3 py-2 text-sm"
                   />
                 </label>
 
@@ -884,7 +885,7 @@ function InventoryPage() {
         {/* MODAL 2: ADJUST STOCK */}
         {adjustingItem ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="w-full max-w-md bg-white p-6 shadow-xl border border-neutral-300">
               <h3 className="mb-1 text-lg font-semibold text-gray-900">
                 Adjust Stock
               </h3>
@@ -899,7 +900,7 @@ function InventoryPage() {
               </p>
 
               {adjustError ? (
-                <p className="mb-3 rounded bg-red-50 p-2.5 text-xs text-red-600">
+                <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
                   {adjustError}
                 </p>
               ) : null}
@@ -937,7 +938,7 @@ function InventoryPage() {
                           : '0.001'
                       }
                       placeholder="e.g. 5"
-                      className="w-full rounded border px-3 py-2 pr-16 text-sm"
+                      className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm"
                     />
                     <span className="pointer-events-none absolute right-3 text-xs font-semibold text-gray-500">
                       {adjustingItem.product.unit}
@@ -952,7 +953,7 @@ function InventoryPage() {
                     required
                     rows={2}
                     placeholder="e.g. Physical inventory count discrepancy, returned shipment correction..."
-                    className="rounded border px-3 py-2 text-sm"
+                    className="border border-neutral-300 px-3 py-2 text-sm"
                   />
                 </label>
 
@@ -978,7 +979,7 @@ function InventoryPage() {
         {/* MODAL 3: TRANSFER STOCK */}
         {transferringItem ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="w-full max-w-md bg-white p-6 shadow-xl border border-neutral-300">
               <h3 className="mb-1 text-lg font-semibold text-gray-900">
                 Transfer Stock
               </h3>
@@ -997,7 +998,7 @@ function InventoryPage() {
               </p>
 
               {transferError ? (
-                <p className="mb-3 rounded bg-red-50 p-2.5 text-xs text-red-600">
+                <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
                   {transferError}
                 </p>
               ) : null}
@@ -1036,7 +1037,7 @@ function InventoryPage() {
                       }
                       max={transferringItem.quantity}
                       placeholder={`Max: ${transferringItem.quantity}`}
-                      className="w-full rounded border px-3 py-2 pr-16 text-sm"
+                      className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm"
                     />
                     <span className="pointer-events-none absolute right-3 text-xs font-semibold text-gray-500">
                       {transferringItem.product.unit}
@@ -1049,7 +1050,7 @@ function InventoryPage() {
                   <input
                     name="notes"
                     placeholder="e.g. Stock replenishment for downtown store"
-                    className="rounded border px-3 py-2 text-sm"
+                    className="border border-neutral-300 px-3 py-2 text-sm"
                   />
                 </label>
 
@@ -1078,11 +1079,14 @@ function InventoryPage() {
   // =========================================================================
   // VIEW MODE 2: LOCATION HUB OVERVIEW (when no locationId is selected)
   // =========================================================================
-  const facilities = loaderData.locationsWithStock.filter(
-    (l) => l.type !== 'store',
-  )
+  const facilities = (
+    loaderData.facilitiesWithStock || loaderData.locationsWithStock || []
+  ).filter((l) => l.type !== 'store')
   const warehouseLoc = facilities.find((l) => l.type === 'warehouse')
   const damagedLoc = facilities.find((l) => l.type === 'damaged')
+
+  const stores = loaderData.storesData?.items || []
+  const totalStores = loaderData.storesData?.total || 0
 
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-6">
@@ -1110,99 +1114,153 @@ function InventoryPage() {
       </div>
 
       {actionError ? (
-        <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">
+        <div className="mb-4 bg-red-50 p-3 text-sm text-red-600 border border-red-200">
           {actionError}
         </div>
       ) : null}
 
       {/* SECTION 1: PROMINENT PRIMARY FACILITIES (Main Warehouse & Damage Stock) */}
       <div className="mb-8">
-        <h2 className="mb-3 text-xs font-semibold tracking-wider text-gray-500 uppercase">
+        <h2 className="mb-3 text-xs font-semibold tracking-wider text-neutral-500 uppercase">
           Primary Facilities
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Main Warehouse Card */}
           {warehouseLoc ? (
-            <div className="flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex flex-col justify-between border border-neutral-200 bg-white p-5 shadow-xs transition hover:border-neutral-300">
               <div>
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
-                      Primary Warehouse
+                    <span className="inline-block bg-neutral-100 text-neutral-800 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider">
+                      Primary Facility
                     </span>
-                    <h3 className="mt-2 text-xl font-bold text-gray-900">
+                    <h3 className="mt-1.5 text-xl font-bold tracking-tight text-neutral-900">
                       {warehouseLoc.name}
                     </h3>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      Central distribution hub · Stock intake & inter-location transfers
+                    </p>
                   </div>
-                  <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 ring-1 ring-green-600/20">
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                     Active
                   </span>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3">
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-neutral-50 p-3.5 border border-neutral-200">
                   <div>
-                    <span className="text-xs text-gray-500">Total Quantity</span>
-                    <p className="text-lg font-bold text-gray-900">
-                      {warehouseLoc.totalQuantity}
-                    </p>
+                    <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
+                      Stock by Unit
+                    </span>
+                    {warehouseLoc.units && warehouseLoc.units.length > 0 ? (
+                      <div className="space-y-1">
+                        {warehouseLoc.units.map((u) => (
+                          <div key={u.unit} className="flex items-baseline gap-1.5">
+                            <span className="text-lg font-bold text-neutral-900">
+                              {u.quantity}
+                            </span>
+                            <span className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
+                              {u.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-sm font-semibold text-neutral-400">
+                        0 in stock
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <span className="text-xs text-gray-500">Active Items</span>
-                    <p className="text-lg font-bold text-gray-900">
-                      {warehouseLoc.itemCount} in stock
+
+                  <div className="sm:border-l sm:border-neutral-200 sm:pl-3">
+                    <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
+                      Active Catalog Items
+                    </span>
+                    <div className="text-lg font-bold text-neutral-900">
+                      {warehouseLoc.itemCount}
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      Distinct product variants in stock
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center justify-between border-t pt-4">
-                <span className="text-xs text-gray-400">
-                  Central distribution center
+              <div className="mt-5 flex items-center justify-between border-t border-neutral-100 pt-3.5">
+                <span className="text-xs text-neutral-400">
+                  {warehouseLoc.address || 'Central Storage & Fulfillment'}
                 </span>
-                <Link
+                <SmallLinkButton
                   to="/inventory"
                   search={{ locationId: warehouseLoc.id }}
-                  className="rounded bg-black px-4 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+                  variant="primary"
                 >
                   Manage Stock →
-                </Link>
+                </SmallLinkButton>
               </div>
             </div>
           ) : null}
 
           {/* Central Damaged Stock Card */}
           {damagedLoc ? (
-            <div className="flex flex-col justify-between rounded-xl border border-red-200 bg-red-50/30 p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex flex-col justify-between border border-rose-200 bg-rose-50/20 p-5 shadow-xs transition hover:border-rose-300">
               <div>
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                    <span className="inline-block bg-rose-100 text-rose-800 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider">
                       Quarantine & Loss
                     </span>
-                    <h3 className="mt-2 text-xl font-bold text-gray-900">
+                    <h3 className="mt-1.5 text-xl font-bold tracking-tight text-neutral-900">
                       {damagedLoc.name}
                     </h3>
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20">
-                    Active
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-white p-3 border border-red-100">
-                  <div>
-                    <span className="text-xs text-gray-500">In Quarantine</span>
-                    <p className="text-lg font-bold text-red-700">
-                      {damagedLoc.totalQuantity} units
+                    <p className="text-xs text-rose-700/80 mt-0.5">
+                      Defective stock quarantined for inspection, repair, or scrap
                     </p>
                   </div>
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+                    Quarantine
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-3.5 border border-rose-100">
                   <div>
-                    <span className="text-xs text-gray-500">Quarantined Items</span>
-                    <p className="text-lg font-bold text-gray-900">
-                      {damagedLoc.itemCount} in holding
+                    <span className="text-[11px] font-semibold text-rose-800/80 uppercase tracking-wider block mb-1">
+                      In Quarantine by Unit
+                    </span>
+                    {damagedLoc.units && damagedLoc.units.length > 0 ? (
+                      <div className="space-y-1">
+                        {damagedLoc.units.map((u) => (
+                          <div key={u.unit} className="flex items-baseline gap-1.5">
+                            <span className="text-lg font-bold text-rose-700">
+                              {u.quantity}
+                            </span>
+                            <span className="text-xs font-medium text-rose-600 uppercase tracking-wide">
+                              {u.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-sm font-semibold text-neutral-400">
+                        0 quarantined
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="sm:border-l sm:border-rose-100 sm:pl-3">
+                    <span className="text-[11px] font-semibold text-rose-800/80 uppercase tracking-wider block mb-1">
+                      Quarantined Batches
+                    </span>
+                    <div className="text-lg font-bold text-neutral-900">
+                      {damagedLoc.itemCount}
+                    </div>
+                    <p className="text-xs text-rose-600/80 mt-0.5">
+                      Items currently in holding
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-red-100 pt-4">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-rose-100 pt-3.5">
                 <Link
                   to="/damage"
                   search={{ status: 'disposed' }}
@@ -1210,12 +1268,9 @@ function InventoryPage() {
                 >
                   View Disposed / Wasted ↗
                 </Link>
-                <Link
-                  to="/damage"
-                  className="rounded bg-red-700 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-800"
-                >
+                <SmallLinkButton to="/damage" variant="danger">
                   Manage Damaged Stock →
-                </Link>
+                </SmallLinkButton>
               </div>
             </div>
           ) : null}
@@ -1235,7 +1290,7 @@ function InventoryPage() {
         <FilterToolbar>
           <SearchInput
             defaultValue={search ?? ''}
-            placeholder="Search store name, address, or phone..."
+            placeholder="Search stores by name, address, or phone..."
             debounceMs={300}
             onSearch={handleOverviewSearchQuery}
             onClear={() => handleOverviewSearchQuery('')}
@@ -1262,7 +1317,7 @@ function InventoryPage() {
                 <TableCard.Head>Store Name</TableCard.Head>
                 <TableCard.Head>Type</TableCard.Head>
                 <TableCard.Head>Address & Phone</TableCard.Head>
-                <TableCard.Head>Total Quantity</TableCard.Head>
+                <TableCard.Head>Stock by Unit</TableCard.Head>
                 <TableCard.Head>Status</TableCard.Head>
                 <TableCard.Head align="right">Actions</TableCard.Head>
               </TableCard.Row>
@@ -1271,7 +1326,7 @@ function InventoryPage() {
               {stores.length === 0 ? (
                 <TableCard.Empty
                   colSpan={6}
-                  message="No retail stores found."
+                  message="No retail stores found matching your filters."
                 />
               ) : (
                 stores.map((store) => (
@@ -1291,7 +1346,7 @@ function InventoryPage() {
 
                     <TableCard.Cell className="whitespace-nowrap">
                       <span
-                        className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                        className={`px-2 py-0.5 text-xs font-semibold ${
                           store.storeType === 'franchise'
                             ? 'bg-purple-100 text-purple-800'
                             : 'bg-emerald-100 text-emerald-800'
@@ -1311,20 +1366,31 @@ function InventoryPage() {
                     </TableCard.Cell>
 
                     <TableCard.Cell className="whitespace-nowrap">
-                      <span className="font-bold text-neutral-900">
-                        {store.totalQuantity}
-                      </span>
-                      <span className="ml-1 text-xs text-neutral-500">
-                        ({store.itemCount} items)
-                      </span>
+                      {store.units && store.units.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                          {store.units.map((u) => (
+                            <span key={u.unit} className="text-xs font-bold text-neutral-900">
+                              {u.quantity}{' '}
+                              <span className="font-normal text-neutral-500 uppercase text-[10px]">
+                                {u.unit}
+                              </span>
+                            </span>
+                          ))}
+                          <span className="text-[11px] text-neutral-400">
+                            ({store.itemCount} items)
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-neutral-400">0 items</span>
+                      )}
                     </TableCard.Cell>
 
                     <TableCard.Cell className="whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        className={`inline-flex items-center px-2 py-0.5 text-xs font-medium ${
                           store.isActive
-                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
-                            : 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-500/20'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
                         }`}
                       >
                         {store.isActive ? 'Active' : 'Inactive'}
@@ -1333,17 +1399,17 @@ function InventoryPage() {
 
                     <TableCard.Cell align="right" className="whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
-                        <TableActionLink
+                        <SmallLinkButton
                           to="/inventory"
                           search={{ locationId: store.id }}
                           variant="primary"
                         >
                           View Stock
-                        </TableActionLink>
+                        </SmallLinkButton>
 
                         {isAdmin ? (
                           <>
-                            <TableActionButton
+                            <SmallButton
                               variant="outline"
                               onClick={() => {
                                 setEditError(null)
@@ -1356,15 +1422,15 @@ function InventoryPage() {
                               }}
                             >
                               Edit
-                            </TableActionButton>
+                            </SmallButton>
 
-                            <TableActionButton
+                            <SmallButton
                               variant={store.isActive ? 'danger' : 'success'}
                               disabled={actionPendingId === store.id}
                               onClick={() => handleToggleStatus(store)}
                             >
                               {store.isActive ? 'Deactivate' : 'Activate'}
-                            </TableActionButton>
+                            </SmallButton>
                           </>
                         ) : null}
                       </div>
@@ -1374,19 +1440,45 @@ function InventoryPage() {
               )}
             </TableCard.Body>
           </TableCard.Table>
+
+          {/* Pagination Bar for Retail Stores */}
+          <TableCard.Footer>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={totalStores}
+              onPageChange={(newPage) =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: newPage,
+                  }),
+                })
+              }
+              onPageSizeChange={(newPageSize) =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    pageSize: newPageSize,
+                    page: 1,
+                  }),
+                })
+              }
+            />
+          </TableCard.Footer>
         </TableCard>
       </div>
 
       {/* OVERVIEW MODAL 1: CREATE STORE */}
       {showCreateStoreModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md bg-white p-6 shadow-xl border border-neutral-300">
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
               Create New Store
             </h3>
 
             {createStoreError ? (
-              <p className="mb-3 rounded bg-red-50 p-2.5 text-xs text-red-600">
+              <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
                 {createStoreError}
               </p>
             ) : null}
@@ -1401,7 +1493,7 @@ function InventoryPage() {
                   name="name"
                   required
                   placeholder="e.g. Uptown Branch"
-                  className="rounded border px-3 py-2 text-sm"
+                  className="border border-neutral-300 px-3 py-2 text-sm"
                 />
               </label>
 
@@ -1421,7 +1513,7 @@ function InventoryPage() {
                 <input
                   name="address"
                   placeholder="Street address, city"
-                  className="rounded border px-3 py-2 text-sm"
+                  className="border border-neutral-300 px-3 py-2 text-sm"
                 />
               </label>
 
@@ -1430,7 +1522,7 @@ function InventoryPage() {
                 <input
                   name="phone"
                   placeholder="Contact phone number"
-                  className="rounded border px-3 py-2 text-sm"
+                  className="border border-neutral-300 px-3 py-2 text-sm"
                 />
               </label>
 
@@ -1456,13 +1548,13 @@ function InventoryPage() {
       {/* OVERVIEW MODAL 2: EDIT LOCATION */}
       {editingLocation ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md bg-white p-6 shadow-xl border border-neutral-300">
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
               Edit Location
             </h3>
 
             {editError ? (
-              <p className="mb-3 rounded bg-red-50 p-2.5 text-xs text-red-600">
+              <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
                 {editError}
               </p>
             ) : null}
@@ -1477,7 +1569,7 @@ function InventoryPage() {
                   name="name"
                   defaultValue={editingLocation.name}
                   required
-                  className="rounded border px-3 py-2 text-sm"
+                  className="border border-neutral-300 px-3 py-2 text-sm"
                 />
               </label>
 
@@ -1486,7 +1578,7 @@ function InventoryPage() {
                 <input
                   name="address"
                   defaultValue={editingLocation.address ?? ''}
-                  className="rounded border px-3 py-2 text-sm"
+                  className="border border-neutral-300 px-3 py-2 text-sm"
                 />
               </label>
 
@@ -1495,7 +1587,7 @@ function InventoryPage() {
                 <input
                   name="phone"
                   defaultValue={editingLocation.phone ?? ''}
-                  className="rounded border px-3 py-2 text-sm"
+                  className="border border-neutral-300 px-3 py-2 text-sm"
                 />
               </label>
 
