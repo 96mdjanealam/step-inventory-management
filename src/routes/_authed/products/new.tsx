@@ -3,10 +3,11 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { Button, LinkButton } from '../../../components/Button.tsx'
+import { ImageUploader } from '../../../components/ImageUploader.tsx'
+import { PriceInput } from '../../../components/PriceInput.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { createProductSchema } from '../../../lib/schemas/product.ts'
 import { createProductFn } from '../../../server/functions/products.ts'
-import { ImageUploader } from '../../../components/ImageUploader.tsx'
 
 export const Route = createFileRoute('/_authed/products/new')({
   component: NewProductPage,
@@ -21,7 +22,7 @@ const unitsByType = {
 type MeasurementType = keyof typeof unitsByType
 
 const inputClass =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black'
+  'w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white'
 
 interface AttributeItem {
   id: string
@@ -421,12 +422,10 @@ function NewProductPage() {
                   error={fieldErrors.discountedPrice}
                   required
                 >
-                  <input
+                  <PriceInput
                     value={singleDiscountedPrice}
-                    onChange={(e) => setSingleDiscountedPrice(e.target.value)}
-                    inputMode="decimal"
+                    onValueChange={(val) => setSingleDiscountedPrice(val)}
                     placeholder="29.99"
-                    className={inputClass}
                     required
                   />
                 </Field>
@@ -435,12 +434,10 @@ function NewProductPage() {
                   label="Regular / Original Price (optional)"
                   error={fieldErrors.regularPrice}
                 >
-                  <input
+                  <PriceInput
                     value={singleRegularPrice}
-                    onChange={(e) => setSingleRegularPrice(e.target.value)}
-                    inputMode="decimal"
+                    onValueChange={(val) => setSingleRegularPrice(val)}
                     placeholder="39.99"
-                    className={inputClass}
                   />
                 </Field>
               </div>
@@ -574,17 +571,16 @@ function NewProductPage() {
                   {/* Pricing, SKU & Image for this variant */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 items-end">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                      <label className="mb-1 block text-xs font-medium text-neutral-700">
                         Selling Price *
                       </label>
-                      <input
+                      <PriceInput
                         value={v.discountedPrice}
-                        onChange={(e) =>
-                          updateVariantField(vIdx, 'discountedPrice', e.target.value)
+                        onValueChange={(val) =>
+                          updateVariantField(vIdx, 'discountedPrice', val)
                         }
-                        inputMode="decimal"
                         placeholder="29.99"
-                        className="w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs focus:border-black focus:outline-none"
+                        className="text-xs"
                         required
                       />
                       {fieldErrors[`variants.${vIdx}.discountedPrice`] && (
@@ -595,17 +591,16 @@ function NewProductPage() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                      <label className="mb-1 block text-xs font-medium text-neutral-700">
                         Regular Price
                       </label>
-                      <input
+                      <PriceInput
                         value={v.regularPrice}
-                        onChange={(e) =>
-                          updateVariantField(vIdx, 'regularPrice', e.target.value)
+                        onValueChange={(val) =>
+                          updateVariantField(vIdx, 'regularPrice', val)
                         }
-                        inputMode="decimal"
                         placeholder="39.99"
-                        className="w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs focus:border-black focus:outline-none"
+                        className="text-xs"
                       />
                       {fieldErrors[`variants.${vIdx}.regularPrice`] && (
                         <span className="text-[10px] text-red-600">

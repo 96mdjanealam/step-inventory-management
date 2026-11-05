@@ -158,7 +158,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           type="button"
           disabled={disabled}
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-full text-left bg-white border border-neutral-300 text-neutral-900 focus:outline-none focus:border-neutral-900 flex items-center justify-between gap-2 shadow-2xs hover:bg-neutral-50/50 transition cursor-pointer disabled:opacity-50 disabled:bg-neutral-100 disabled:cursor-not-allowed ${
+          className={`w-full text-left bg-white border border-neutral-300 text-brand-charcoal focus:outline-none focus:border-brand-primary flex items-center justify-between gap-2 shadow-2xs hover:bg-neutral-50/50 transition cursor-pointer disabled:opacity-50 disabled:bg-neutral-100 disabled:cursor-not-allowed ${
             isSm ? 'min-h-8 px-2.5 py-1 text-xs' : 'min-h-10 px-3 py-2 text-sm'
           }`}
         >
@@ -175,7 +175,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           <ChevronDown
             className={`transition-transform duration-150 text-neutral-400 flex-shrink-0 ${
               isSm ? 'w-3.5 h-3.5' : 'w-4 h-4'
-            } ${isOpen ? 'rotate-180 text-neutral-800' : ''}`}
+            } ${isOpen ? 'rotate-180 text-brand-primary' : ''}`}
           />
         </button>
 
@@ -195,11 +195,11 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                     <div
                       key={opt.value}
                       onClick={() => handleSelect(opt.value)}
-                      className={`cursor-pointer hover:bg-neutral-50 flex items-center justify-between gap-3 transition ${
+                      className={`cursor-pointer hover:bg-brand-bg/40 flex items-center justify-between gap-3 transition ${
                         isSm ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'
                       } ${
                         isSelected
-                          ? 'bg-neutral-100/70 font-semibold text-neutral-900'
+                          ? 'bg-brand-bg/70 font-semibold text-brand-primary'
                           : 'text-neutral-700'
                       }`}
                     >
@@ -208,7 +208,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                         <Check
                           className={`${
                             isSm ? 'w-3.5 h-3.5' : 'w-4 h-4'
-                          } text-neutral-900 flex-shrink-0`}
+                          } text-brand-primary flex-shrink-0`}
                         />
                       )}
                     </div>

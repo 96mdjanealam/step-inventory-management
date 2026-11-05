@@ -6,7 +6,7 @@ export const Route = createFileRoute('/')({
     try {
       const user = await getMe()
       if (user) {
-        throw redirect({ to: '/inventory' })
+        throw redirect({ to: '/dashboard' })
       }
     } catch (e: any) {
       if (e?.to) throw e

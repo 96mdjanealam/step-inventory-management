@@ -3,11 +3,13 @@ import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
-import { Button, TableActionButton } from '../../../components/Button.tsx'
+import { Button } from '../../../components/Button.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
+import { Modal } from '../../../components/Modal.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
+import { useTableAutoRefresh } from '../../../lib/hooks/useTableAutoRefresh.ts'
 import {
   createUserFn,
   listUsersFn,
@@ -64,19 +66,21 @@ function UsersPage() {
   const [actionPendingId, setActionPendingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  useTableAutoRefresh({ enabled: !showCreateModal && !actionPendingId })
+
   const isAdmin = user.role === 'admin'
 
   if (!isAdmin) {
     return (
       <main className="mx-auto max-w-4xl p-6">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+        <div className="border border-red-200 bg-red-50 p-6 text-center">
           <h1 className="text-lg font-semibold text-red-700">Access Restricted</h1>
           <p className="mt-2 text-sm text-red-600">
             Only administrators are authorized to manage team member accounts.
           </p>
           <Link
             to="/products"
-            className="mt-4 inline-block rounded bg-black px-4 py-2 text-sm text-white"
+            className="mt-4 inline-block bg-black px-4 py-2 text-sm text-white"
           >
             Go to Products
           </Link>
@@ -92,6 +96,8 @@ function UsersPage() {
         page: 1,
         search: value || undefined,
       }),
+      replace: true,
+      resetScroll: false,
     })
   }
 
@@ -102,6 +108,7 @@ function UsersPage() {
         page: 1,
         role: (selectedRole || undefined) as 'admin' | 'employee' | undefined,
       }),
+      resetScroll: false,
     })
   }
 
@@ -112,6 +119,7 @@ function UsersPage() {
         page: 1,
         includeInactive: checked || undefined,
       }),
+      resetScroll: false,
     })
   }
 
@@ -340,14 +348,15 @@ function UsersPage() {
                     </TableCard.Cell>
                     <TableCard.Cell align="right" className="whitespace-nowrap">
                       {!isSelf ? (
-                        <TableActionButton
-                          variant={u.isActive ? 'danger' : 'success'}
+                        <Button
+                          size="xs"
+                          variant={u.isActive ? 'dangerSoft' : 'success'}
                           disabled={actionPendingId === u.id}
                           isLoading={actionPendingId === u.id}
                           onClick={() => handleToggleStatus(u)}
                         >
                           {u.isActive ? 'Deactivate' : 'Activate'}
-                        </TableActionButton>
+                        </Button>
                       ) : (
                         <span className="text-xs text-neutral-400">—</span>
                       )}
@@ -366,11 +375,13 @@ function UsersPage() {
             onPageChange={(newPage) =>
               navigate({
                 search: (prev) => ({ ...prev, page: newPage }),
+                resetScroll: false,
               })
             }
             onPageSizeChange={(newPageSize) =>
               navigate({
                 search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+                resetScroll: false,
               })
             }
           />
@@ -378,79 +389,77 @@ function UsersPage() {
       </TableCard>
 
       {/* Create User Modal */}
-      {showCreateModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Create Staff Account</h3>
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create Staff Account"
+        description="Add a new administrator or employee account to access the system."
+        size="sm"
+      >
+        <form onSubmit={handleCreateUser} className="flex flex-col flex-1 min-h-0">
+          <Modal.Body className="space-y-3.5">
+            {createError && <Modal.Alert>{createError}</Modal.Alert>}
 
-            {createError ? (
-              <p className="mb-3 rounded bg-red-50 p-2 text-xs text-red-600">
-                {createError}
-              </p>
-            ) : null}
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              Email address *
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="employee@company.com"
+                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </label>
 
-            <form onSubmit={handleCreateUser} className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Email address *
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="employee@company.com"
-                  className="rounded border px-3 py-2 text-sm"
-                />
-              </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              Password *
+              <input
+                name="password"
+                type="password"
+                required
+                minLength={6}
+                placeholder="Minimum 6 characters"
+                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </label>
 
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Password *
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="Minimum 6 characters"
-                  className="rounded border px-3 py-2 text-sm"
-                />
-              </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              Username (optional)
+              <input
+                name="username"
+                placeholder="e.g. john_doe"
+                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </label>
 
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Username (optional)
-                <input
-                  name="username"
-                  placeholder="e.g. john_doe"
-                  className="rounded border px-3 py-2 text-sm"
-                />
-              </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              Role
+              <Select
+                name="role"
+                defaultValue="employee"
+              >
+                <option value="employee">Employee</option>
+                <option value="admin">Administrator</option>
+              </Select>
+            </label>
+          </Modal.Body>
 
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Role
-                <Select
-                  name="role"
-                  defaultValue="employee"
-                >
-                  <option value="employee">Employee</option>
-                  <option value="admin">Administrator</option>
-                </Select>
-              </label>
-
-              <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowCreateModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  isLoading={createPending}
-                >
-                  Create account
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() => setShowCreateModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              isLoading={createPending}
+            >
+              Create account
+            </Button>
+          </Modal.Footer>
+        </form>
+      </Modal>
     </main>
   )
 }

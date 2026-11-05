@@ -1,20 +1,48 @@
 import React from 'react'
+import { useRouterState } from '@tanstack/react-router'
+import { isSilentAutoRefreshing } from '../lib/hooks/useTableAutoRefresh.ts'
 
 export interface TableCardProps {
   children: React.ReactNode
   className?: string
+  isLoading?: boolean
 }
 
 /**
- * Standardized table card container matching the /sales page aesthetic.
- * Clean rounded-xl card with border, subtle shadow, and consistent header/cell typography.
+ * Standardized table card container matching the application's design tokens.
+ * Provides smooth in-place table refreshing during search and filter operations:
+ * - Dims table rows slightly (opacity-60 pointer-events-none) during active queries.
+ * - Shows a sleek 2px indeterminate progress bar pinned to the top border.
+ * - Stays completely silent during 5-second background auto-refresh to prevent flickering.
  */
-export function TableCard({ children, className = '' }: TableCardProps) {
+export function TableCard({
+  children,
+  className = '',
+  isLoading,
+}: TableCardProps) {
+  const isTableLoading = useRouterState({
+    select: (s) =>
+      s.status === 'pending' &&
+      (!s.resolvedLocation || s.location.pathname === s.resolvedLocation.pathname),
+  })
+  const loading = (isLoading ?? isTableLoading) && !isSilentAutoRefreshing
+
   return (
     <div
-      className={`bg-white border border-neutral-200 shadow-xs overflow-hidden ${className}`}
+      className={`relative bg-white border border-neutral-200 shadow-xs overflow-hidden ${className}`}
     >
-      {children}
+      {loading && (
+        <div className="absolute top-0 left-0 right-0 z-20 h-0.5 bg-brand-coral/30 overflow-hidden pointer-events-none">
+          <div className="h-full bg-brand-primary w-full animate-indeterminate" />
+        </div>
+      )}
+      <div
+        className={`transition-opacity duration-150 ${
+          loading ? 'opacity-60 pointer-events-none' : 'opacity-100'
+        }`}
+      >
+        {children}
+      </div>
     </div>
   )
 }

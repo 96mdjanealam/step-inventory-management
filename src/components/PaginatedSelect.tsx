@@ -204,19 +204,23 @@ export function PaginatedSelect<T>({
             setIsOpen(true)
           }
         }}
-        className={`w-full min-h-10 px-3 py-2 text-left bg-white border border-neutral-300 text-sm text-neutral-900 focus:outline-none focus:border-neutral-900 flex items-center justify-between gap-2 shadow-2xs hover:bg-neutral-50/50 transition cursor-pointer select-none ${
+        className={`w-full min-h-10 px-3 py-2 text-left bg-white border border-neutral-300 text-sm text-brand-charcoal focus:outline-none focus:border-brand-primary flex items-center justify-between gap-2 shadow-2xs hover:bg-neutral-50/50 transition cursor-pointer select-none ${
           disabled ? 'opacity-50 bg-neutral-100 cursor-not-allowed' : ''
         }`}
       >
         <div className="flex-1 min-w-0">
-          {renderSelected ? (
-            renderSelected(currentItem)
-          ) : currentItem ? (
-            <span className="truncate block font-medium">
-              {getItemLabel(currentItem)}
-            </span>
+          {currentItem ? (
+            renderSelected ? (
+              renderSelected(currentItem)
+            ) : (
+              <span className="truncate block font-medium">
+                {getItemLabel(currentItem)}
+              </span>
+            )
           ) : (
-            <span className="text-neutral-400 select-none">{placeholder}</span>
+            renderSelected?.(null) || (
+              <span className="text-neutral-400 select-none">{placeholder}</span>
+            )
           )}
         </div>
 
@@ -233,7 +237,7 @@ export function PaginatedSelect<T>({
           )}
           <ChevronDown
             className={`w-4 h-4 transition-transform duration-150 ${
-              isOpen ? 'rotate-180 text-neutral-800' : ''
+              isOpen ? 'rotate-180 text-brand-primary' : ''
             }`}
           />
         </div>
@@ -252,7 +256,7 @@ export function PaginatedSelect<T>({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-neutral-200 focus:outline-none focus:border-neutral-900 placeholder:text-neutral-400"
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-neutral-200 focus:outline-none focus:border-brand-primary placeholder:text-neutral-400"
               />
               {search && (
                 <button
@@ -290,8 +294,8 @@ export function PaginatedSelect<T>({
                   <div
                     key={itemVal}
                     onClick={() => handleSelect(item)}
-                    className={`px-3 py-2.5 cursor-pointer hover:bg-neutral-50 flex items-center justify-between gap-3 transition ${
-                      isSelected ? 'bg-neutral-100/70 font-semibold' : ''
+                    className={`px-3 py-2.5 cursor-pointer hover:bg-brand-bg/40 flex items-center justify-between gap-3 transition ${
+                      isSelected ? 'bg-brand-bg/70 font-semibold text-brand-primary' : ''
                     }`}
                   >
                     <div className="flex-1 min-w-0">
@@ -304,7 +308,7 @@ export function PaginatedSelect<T>({
                       )}
                     </div>
                     {isSelected && (
-                      <Check className="w-4 h-4 text-neutral-900 flex-shrink-0" />
+                      <Check className="w-4 h-4 text-brand-primary flex-shrink-0" />
                     )}
                   </div>
                 )

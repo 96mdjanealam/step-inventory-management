@@ -1,11 +1,12 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { TableActionLink } from '../../../components/Button.tsx'
+import { LinkButton } from '../../../components/Button.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
+import { useTableAutoRefresh } from '../../../lib/hooks/useTableAutoRefresh.ts'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listReturnsFn } from '../../../server/functions/returns.ts'
 
@@ -42,6 +43,7 @@ export const Route = createFileRoute('/_authed/returns/')({
 })
 
 function ReturnsPage() {
+  useTableAutoRefresh()
   const { returns, total, page, pageSize } = Route.useLoaderData()
   const { search, locationId } = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -53,6 +55,8 @@ function ReturnsPage() {
         page: 1,
         search: query || undefined,
       }),
+      replace: true,
+      resetScroll: false,
     })
   }
 
@@ -89,9 +93,10 @@ function ReturnsPage() {
                   locationId: val || undefined,
                   page: 1,
                 }),
+                resetScroll: false,
               })
             }
-            placeholder="All Store Locations"
+            placeholder="Filter by location"
             clearable
             className="w-full sm:w-64"
           />
@@ -247,12 +252,14 @@ function ReturnsPage() {
                       align="right"
                       className="whitespace-nowrap align-top"
                     >
-                      <TableActionLink
+                      <LinkButton
+                        size="xs"
+                        variant="secondary"
                         to="/sales/$saleId"
                         params={{ saleId: ret.saleId }}
                       >
                         View Order
-                      </TableActionLink>
+                      </LinkButton>
                     </TableCard.Cell>
                   </TableCard.Row>
                 )
@@ -273,6 +280,7 @@ function ReturnsPage() {
                   ...prev,
                   page: newPage,
                 }),
+                resetScroll: false,
               })
             }
             onPageSizeChange={(newPageSize) =>
@@ -282,6 +290,7 @@ function ReturnsPage() {
                   pageSize: newPageSize,
                   page: 1,
                 }),
+                resetScroll: false,
               })
             }
           />

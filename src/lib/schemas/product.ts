@@ -75,6 +75,7 @@ export const listProductsSchema = z.object({
   search: z.string().trim().min(1).max(100).optional(),
   category: z.string().trim().min(1).max(100).optional(),
   includeArchived: z.boolean().default(false),
+  locationId: z.string().uuid().optional(),
 })
 
 export type ListProductsInput = z.output<typeof listProductsSchema>

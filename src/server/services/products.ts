@@ -1,6 +1,6 @@
 import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { db } from '../db/index.ts'
-import { products, productVariants } from '../db/schema/index.ts'
+import { inventory, products, productVariants } from '../db/schema/index.ts'
 import { logActivity } from './activity-logs.ts'
 import type {
   CreateProductInput,
@@ -125,6 +125,14 @@ export async function listProducts(input: ListProductsInput) {
     escapedSearch ? ilike(products.name, `%${escapedSearch}%`) : undefined,
     input.category
       ? sql`lower(${products.category}) = lower(${input.category})`
+      : undefined,
+    input.locationId
+      ? sql`exists (
+          select 1 from ${inventory}
+          where ${inventory.productId} = ${products.id}
+            and ${inventory.locationId} = ${input.locationId}
+            and ${inventory.quantity} > 0
+        )`
       : undefined,
   )
 

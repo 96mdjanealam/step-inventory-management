@@ -9,7 +9,7 @@ import {
   Package,
   Plus,
 } from 'lucide-react'
-import { Button, LinkButton, SmallButton } from '../../../components/Button.tsx'
+import { Button, LinkButton } from '../../../components/Button.tsx'
 import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
@@ -510,15 +510,17 @@ function NewTransferPage() {
 
             {/* Action buttons */}
             <div className="flex items-center justify-end gap-2 pt-1">
-              <SmallButton
+              <Button
                 type="button"
+                size="xs"
                 variant="outline"
                 onClick={handleCancelDraft}
               >
                 Cancel
-              </SmallButton>
-              <SmallButton
+              </Button>
+              <Button
                 type="button"
+                size="xs"
                 variant="primary"
                 onClick={handleSaveDraft}
                 disabled={
@@ -528,7 +530,7 @@ function NewTransferPage() {
                 }
               >
                 {mode === 'edit' ? 'Update Item' : 'Add Item'}
-              </SmallButton>
+              </Button>
             </div>
           </div>
         </div>
@@ -601,7 +603,7 @@ function NewTransferPage() {
               <LocationSelect
                 value={sourceLocationId}
                 onChange={handleSourceLocationChange}
-                placeholder="-- Select Source Location --"
+                placeholder="Select source location"
                 initialLocation={sourceLoc}
               />
               <div className="mt-1 text-xs text-neutral-500">
@@ -618,7 +620,7 @@ function NewTransferPage() {
               <LocationSelect
                 value={destinationLocationId}
                 onChange={(newDest) => setDestinationLocationId(newDest)}
-                placeholder="-- Select Destination Location --"
+                placeholder="Select destination location"
                 initialLocation={destLoc}
               />
             </div>
@@ -733,21 +735,23 @@ function NewTransferPage() {
                             {/* Actions: Edit & Delete */}
                             <td className="px-4 py-3 text-right whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5">
-                                <SmallButton
+                                <Button
                                   type="button"
+                                  size="xs"
                                   variant="ghost"
                                   onClick={() => handleOpenEdit(item)}
                                 >
                                   Edit
-                                </SmallButton>
-                                <SmallButton
+                                </Button>
+                                <Button
                                   type="button"
-                                  variant="danger"
+                                  size="xs"
+                                  variant="dangerSoft"
                                   onClick={() => handleRemoveItem(item.id)}
                                   title="Delete item"
                                 >
                                   Delete
-                                </SmallButton>
+                                </Button>
                               </div>
                             </td>
                           </tr>

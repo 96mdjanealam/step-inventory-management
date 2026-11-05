@@ -3,10 +3,11 @@ import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon, Plus } from 'lucide-react'
 import { z } from 'zod'
-import { LinkButton, TableActionButton } from '../../../components/Button.tsx'
+import { Button, LinkButton } from '../../../components/Button.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
+import { useTableAutoRefresh } from '../../../lib/hooks/useTableAutoRefresh.ts'
 import {
   archiveProductFn,
   listProductsFn,
@@ -53,6 +54,8 @@ function ProductsPage() {
   const [actionPendingId, setActionPendingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  useTableAutoRefresh({ enabled: !actionPendingId })
+
   const isAdmin = user.role === 'admin'
 
   function handleSearchQuery(value: string) {
@@ -62,6 +65,8 @@ function ProductsPage() {
         page: 1,
         search: value || undefined,
       }),
+      replace: true,
+      resetScroll: false,
     })
   }
 
@@ -72,6 +77,7 @@ function ProductsPage() {
         page: 1,
         includeArchived: checked || undefined,
       }),
+      resetScroll: false,
     })
   }
 
@@ -227,23 +233,25 @@ function ProductsPage() {
                       {isAdmin ? (
                         <TableCard.Td className="text-right">
                           {item.isActive ? (
-                            <TableActionButton
-                              variant="danger"
+                            <Button
+                              size="xs"
+                              variant="dangerSoft"
                               disabled={actionPendingId === item.id}
                               isLoading={actionPendingId === item.id}
                               onClick={() => handleArchive(item.id, item.name)}
                             >
                               Archive
-                            </TableActionButton>
+                            </Button>
                           ) : (
-                            <TableActionButton
+                            <Button
+                              size="xs"
                               variant="primary"
                               disabled={actionPendingId === item.id}
                               isLoading={actionPendingId === item.id}
                               onClick={() => handleRestore(item.id)}
                             >
                               Restore
-                            </TableActionButton>
+                            </Button>
                           )}
                         </TableCard.Td>
                       ) : null}
@@ -263,11 +271,13 @@ function ProductsPage() {
             onPageChange={(newPage) =>
               navigate({
                 search: (prev) => ({ ...prev, page: newPage }),
+                resetScroll: false,
               })
             }
             onPageSizeChange={(newPageSize) =>
               navigate({
                 search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+                resetScroll: false,
               })
             }
           />

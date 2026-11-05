@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon, Plus } from 'lucide-react'
-import { Button, LinkButton, TableActionButton } from '../../../components/Button.tsx'
+import { Button, LinkButton } from '../../../components/Button.tsx'
+import { ImageUploader } from '../../../components/ImageUploader.tsx'
+import { Modal } from '../../../components/Modal.tsx'
+import { PriceInput } from '../../../components/PriceInput.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import {
@@ -16,7 +19,6 @@ import {
   toggleVariantActiveFn,
   updateVariantFn,
 } from '../../../server/functions/variants.ts'
-import { ImageUploader } from '../../../components/ImageUploader.tsx'
 
 export const Route = createFileRoute('/_authed/products/$productId')({
   loader: ({ params }) => getProductFn({ data: { id: params.productId } }),
@@ -661,18 +663,20 @@ function ProductDetailPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
-                        <TableActionButton
+                        <Button
+                          size="xs"
                           variant="outline"
                           onClick={() => openEditVariant(v)}
                         >
                           Edit
-                        </TableActionButton>
-                        <TableActionButton
-                          variant={v.isActive ? 'danger' : 'success'}
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant={v.isActive ? 'dangerSoft' : 'success'}
                           onClick={() => handleToggleVariant(v)}
                         >
                           {v.isActive ? 'Deactivate' : 'Activate'}
-                        </TableActionButton>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -684,148 +688,136 @@ function ProductDetailPage() {
       </div>
 
       {/* Add / Edit Variant Modal */}
-      {showAddVariant ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              {editingVariant ? 'Edit Variant' : 'Add New Variant'}
-            </h3>
+      <Modal
+        isOpen={showAddVariant}
+        onClose={() => setShowAddVariant(false)}
+        title={editingVariant ? 'Edit Variant' : 'Add New Variant'}
+        description="Configure pricing, SKU, and attributes for this product variant."
+        size="md"
+      >
+        <form onSubmit={handleVariantSubmit} className="flex flex-col flex-1 min-h-0">
+          <Modal.Body className="space-y-4">
+            {variantError && <Modal.Alert>{variantError}</Modal.Alert>}
 
-            {variantError ? (
-              <p className="mb-3 rounded bg-red-50 p-2 text-xs text-red-600 border border-red-200">
-                {variantError}
-              </p>
-            ) : null}
-
-            <form onSubmit={handleVariantSubmit} className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  SKU (optional)
-                  <input
-                    name="sku"
-                    defaultValue={editingVariant?.sku ?? ''}
-                    placeholder="e.g. TSHIRT-BLU-L"
-                    className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-                  />
-                </label>
-
-                <div>
-                  <ImageUploader
-                    multiple={false}
-                    value={variantImage}
-                    onChange={setVariantImage}
-                    label="Variant Photo (optional)"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  Selling Price *
-                  <input
-                    name="discountedPrice"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    defaultValue={editingVariant?.discountedPrice ?? ''}
-                    placeholder="29.99"
-                    className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  Regular Price
-                  <input
-                    name="regularPrice"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    defaultValue={editingVariant?.regularPrice ?? ''}
-                    placeholder="39.99"
-                    className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-                  />
-                </label>
-              </div>
-
-              {/* Attributes Section */}
-              <div className="mt-1 flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-700 uppercase">
-                    Attributes (Size, Color, Material, etc.)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={addAttributeRow}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Add attribute
-                  </button>
-                </div>
-
-                {variantAttributes.map((attr) => (
-                  <div key={attr.id} className="flex gap-2">
-                    <input
-                      placeholder="Name (e.g. Size)"
-                      value={attr.key}
-                      onChange={(e) =>
-                        updateAttributeRow(attr.id, e.target.value, attr.value)
-                      }
-                      className="w-1/2 rounded border border-gray-300 bg-white px-2 py-1.5 text-xs focus:border-black focus:outline-none"
-                    />
-                    <input
-                      placeholder="Value (e.g. Medium)"
-                      value={attr.value}
-                      onChange={(e) =>
-                        updateAttributeRow(attr.id, attr.key, e.target.value)
-                      }
-                      className="w-1/2 rounded border border-gray-300 bg-white px-2 py-1.5 text-xs focus:border-black focus:outline-none"
-                    />
-                    {variantAttributes.length > 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => removeAttributeRow(attr.id)}
-                        className="px-1 text-xs text-red-500 hover:text-red-700"
-                        title="Remove"
-                      >
-                        ✕
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                SKU (optional)
                 <input
-                  type="checkbox"
-                  name="isDefault"
-                  defaultChecked={editingVariant?.isDefault ?? false}
-                  className="rounded border-gray-300"
+                  name="sku"
+                  defaultValue={editingVariant?.sku ?? ''}
+                  placeholder="e.g. TSHIRT-BLU-L"
+                  className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
                 />
-                Set as default variant
               </label>
 
-              <div className="mt-4 flex justify-end gap-2 border-t pt-3">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowAddVariant(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  isLoading={variantPending}
-                >
-                  Save variant
-                </Button>
+              <div>
+                <ImageUploader
+                  multiple={false}
+                  value={variantImage}
+                  onChange={setVariantImage}
+                  label="Variant Photo (optional)"
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                Selling Price *
+                <PriceInput
+                  name="discountedPrice"
+                  required
+                  defaultValue={editingVariant?.discountedPrice ?? ''}
+                  placeholder="29.99"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                Regular Price
+                <PriceInput
+                  name="regularPrice"
+                  defaultValue={editingVariant?.regularPrice ?? ''}
+                  placeholder="39.99"
+                />
+              </label>
+            </div>
+
+            {/* Attributes Section */}
+            <div className="flex flex-col gap-2 border border-neutral-200 bg-neutral-50/70 p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-700 uppercase tracking-wider">
+                  Attributes (Size, Color, Material, etc.)
+                </span>
+                <button
+                  type="button"
+                  onClick={addAttributeRow}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-neutral-900 hover:underline cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add attribute
+                </button>
+              </div>
+
+              {variantAttributes.map((attr) => (
+                <div key={attr.id} className="flex gap-2">
+                  <input
+                    placeholder="Name (e.g. Size)"
+                    value={attr.key}
+                    onChange={(e) =>
+                      updateAttributeRow(attr.id, e.target.value, attr.value)
+                    }
+                    className="w-1/2 border border-neutral-300 bg-white px-2.5 py-1.5 text-xs focus:border-neutral-900 focus:outline-none"
+                  />
+                  <input
+                    placeholder="Value (e.g. Medium)"
+                    value={attr.value}
+                    onChange={(e) =>
+                      updateAttributeRow(attr.id, attr.key, e.target.value)
+                    }
+                    className="w-1/2 border border-neutral-300 bg-white px-2.5 py-1.5 text-xs focus:border-neutral-900 focus:outline-none"
+                  />
+                  {variantAttributes.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => removeAttributeRow(attr.id)}
+                      className="px-1 text-xs text-rose-500 hover:text-rose-700 cursor-pointer"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                name="isDefault"
+                defaultChecked={editingVariant?.isDefault ?? false}
+                className="border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+              />
+              Set as default variant
+            </label>
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowAddVariant(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={variantPending}
+            >
+              Save variant
+            </Button>
+          </Modal.Footer>
+        </form>
+      </Modal>
     </main>
   )
 }

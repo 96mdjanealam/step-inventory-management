@@ -1,14 +1,28 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { loginFn } from '../server/functions/auth.ts'
+import { Button } from '../components/Button.tsx'
+import { getMe, loginFn } from '../server/functions/auth.ts'
 
 export const Route = createFileRoute('/login')({
+  beforeLoad: async () => {
+    try {
+      const user = await getMe()
+      if (user) {
+        throw redirect({ to: '/dashboard' })
+      }
+    } catch (e: any) {
+      if (e?.to) throw e
+      // Not signed in
+    }
+  },
   component: LoginPage,
 })
 
 function LoginPage() {
   const login = useServerFn(loginFn)
+  const navigate = Route.useNavigate()
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -25,7 +39,19 @@ function LoginPage() {
           password: String(form.get('password') ?? ''),
         },
       })
-      if (result?.error) setError(result.error)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        await router.invalidate()
+        await navigate({ to: '/dashboard' })
+      }
+    } catch (err: any) {
+      if (err?.to) {
+        await router.invalidate()
+        await navigate({ to: err.to })
+        return
+      }
+      setError(err?.message || 'Login failed')
     } finally {
       setPending(false)
     }
@@ -33,36 +59,57 @@ function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 p-6">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 bg-brand-primary text-white flex items-center justify-center font-black text-xs select-none">
+            INV
+          </div>
+          <span className="font-bold text-lg text-brand-charcoal tracking-tight">InventoryOS</span>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-brand-charcoal">Sign in</h1>
+        <p className="text-xs text-neutral-500">
+          Enter your credentials to access the inventory system.
+        </p>
+      </div>
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          Email
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+          Email address
           <input
             name="email"
             type="email"
             autoComplete="email"
             required
-            className="rounded border px-3 py-2"
+            placeholder="user@company.com"
+            className="border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-charcoal focus:border-brand-primary focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
           Password
           <input
             name="password"
             type="password"
             autoComplete="current-password"
             required
-            className="rounded border px-3 py-2"
+            placeholder="••••••••"
+            className="border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-charcoal focus:border-brand-primary focus:outline-none"
           />
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
+
+        {error && (
+          <div className="border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800">
+            {error}
+          </div>
+        )}
+
+        <Button
           type="submit"
-          disabled={pending}
-          className="rounded bg-black px-3 py-2 text-white disabled:opacity-50"
+          isLoading={pending}
+          className="w-full mt-2"
         >
-          {pending ? 'Signing in...' : 'Sign in'}
-        </button>
+          Sign in
+        </Button>
       </form>
     </main>
   )

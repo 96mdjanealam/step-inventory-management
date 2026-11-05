@@ -31,7 +31,7 @@ export function LocationSelect({
   onChange,
   type,
   storeType,
-  placeholder = '-- Choose Location --',
+  placeholder = 'Select location',
   disabled = false,
   className = '',
   clearable = false,

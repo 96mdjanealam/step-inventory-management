@@ -73,18 +73,16 @@ export function SearchInput({
   inputClassName = '',
   name = 'search',
   disabled = false,
-  showSubmitButton,
+  showSubmitButton = false,
   submitButtonText = 'Search',
-  debounceMs,
+  debounceMs = 300,
 }: SearchInputProps) {
   const [query, setQuery] = useState(value !== undefined ? value : defaultValue)
   const inputRef = useRef<HTMLInputElement>(null)
   const isFirstRender = useRef(true)
   const lastSearchedRef = useRef(value !== undefined ? value : defaultValue)
 
-  // Default showSubmitButton to false if debouncing is active, otherwise true
-  const shouldShowButton =
-    showSubmitButton !== undefined ? showSubmitButton : !debounceMs
+  const shouldShowButton = showSubmitButton
 
   useEffect(() => {
     if (value !== undefined) {
@@ -149,7 +147,7 @@ export function SearchInput({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full h-10 pl-9 pr-8 border border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition shadow-2xs disabled:bg-neutral-100 disabled:cursor-not-allowed ${inputClassName}`}
+          className={`w-full h-10 pl-9 pr-8 border border-neutral-300 bg-white text-sm text-brand-charcoal placeholder:text-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition shadow-2xs disabled:bg-neutral-100 disabled:cursor-not-allowed ${inputClassName}`}
         />
         {query && !disabled && (
           <button

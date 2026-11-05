@@ -7,6 +7,7 @@ import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { VariantDisplay } from '../../../lib/display-formatters.tsx'
+import { useTableAutoRefresh } from '../../../lib/hooks/useTableAutoRefresh.ts'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listTransfersFn } from '../../../server/functions/transfers.ts'
 
@@ -43,6 +44,7 @@ export const Route = createFileRoute('/_authed/transfers/')({
 })
 
 function TransfersPage() {
+  useTableAutoRefresh()
   const { items, total, page, pageSize } = Route.useLoaderData()
   const { search, locationId } = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -54,6 +56,8 @@ function TransfersPage() {
         page: 1,
         search: q || undefined,
       }),
+      replace: true,
+      resetScroll: false,
     })
   }
 
@@ -64,6 +68,7 @@ function TransfersPage() {
         page: 1,
         locationId: newLocId || undefined,
       }),
+      resetScroll: false,
     })
   }
 
@@ -100,7 +105,7 @@ function TransfersPage() {
           <LocationSelect
             value={locationId ?? ''}
             onChange={(val) => handleLocationFilter(val)}
-            placeholder="All Facilities & Stores"
+            placeholder="Filter by location"
             clearable
             className="w-full sm:w-64"
           />
@@ -231,11 +236,13 @@ function TransfersPage() {
             onPageChange={(newPage) =>
               navigate({
                 search: (prev) => ({ ...prev, page: newPage }),
+                resetScroll: false,
               })
             }
             onPageSizeChange={(newPageSize) =>
               navigate({
                 search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+                resetScroll: false,
               })
             }
           />

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, AlertCircle, Package, Plus, Image as ImageIcon } from 'lucide-react'
-import { Button, LinkButton, SmallButton } from '../../../components/Button.tsx'
+import { Button, LinkButton } from '../../../components/Button.tsx'
 import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
@@ -585,21 +585,23 @@ function NewSalePage() {
 
             {/* Action buttons */}
             <div className="flex items-center justify-end gap-2 pt-1">
-              <SmallButton
+              <Button
                 type="button"
+                size="xs"
                 variant="outline"
                 onClick={handleCancelDraft}
               >
                 Cancel
-              </SmallButton>
-              <SmallButton
+              </Button>
+              <Button
                 type="button"
+                size="xs"
                 variant="primary"
                 onClick={handleSaveDraft}
                 disabled={!draft.variantId || !draft.quantity || Number(draft.quantity) <= 0}
               >
                 {mode === 'edit' ? 'Update Item' : 'Add Item'}
-              </SmallButton>
+              </Button>
             </div>
           </div>
         </div>
@@ -672,7 +674,7 @@ function NewSalePage() {
                 value={locationId}
                 type="store"
                 onChange={(newLocId) => handleLocationChange(newLocId)}
-                placeholder="-- Select Store Location --"
+                placeholder="Select store location"
                 initialLocation={selectedLocation}
               />
               <div className="mt-1 text-xs text-neutral-500">
@@ -829,21 +831,23 @@ function NewSalePage() {
                             {/* Actions: Edit & Delete */}
                             <td className="px-4 py-3 text-right whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5">
-                                <SmallButton
+                                <Button
                                   type="button"
+                                  size="xs"
                                   variant="ghost"
                                   onClick={() => handleOpenEdit(item)}
                                 >
                                   Edit
-                                </SmallButton>
-                                <SmallButton
+                                </Button>
+                                <Button
                                   type="button"
-                                  variant="danger"
+                                  size="xs"
+                                  variant="dangerSoft"
                                   onClick={() => handleRemoveItem(item.id)}
                                   title="Delete item"
                                 >
                                   Delete
-                                </SmallButton>
+                                </Button>
                               </div>
                             </td>
                           </tr>

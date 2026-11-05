@@ -51,9 +51,9 @@ export function TablePagination({
       {/* Left: Results summary & Page size selector */}
       <div className="flex flex-wrap items-center gap-3">
         <span>
-          Showing <strong className="font-semibold text-neutral-900">{startItem}</strong> to{' '}
-          <strong className="font-semibold text-neutral-900">{endItem}</strong> of{' '}
-          <strong className="font-semibold text-neutral-900">{total}</strong> results
+          Showing <strong className="font-semibold text-brand-charcoal">{startItem}</strong> to{' '}
+          <strong className="font-semibold text-brand-charcoal">{endItem}</strong> of{' '}
+          <strong className="font-semibold text-brand-charcoal">{total}</strong> results
         </span>
 
         {onPageSizeChange && (
@@ -67,7 +67,7 @@ export function TablePagination({
                 onPageChange(1)
               }}
               disabled={disabled}
-              className="border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-800 focus:border-neutral-900 focus:outline-none disabled:opacity-50"
+              className="border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-800 focus:border-brand-primary focus:outline-none disabled:opacity-50"
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -114,10 +114,10 @@ export function TablePagination({
                 type="button"
                 onClick={() => onPageChange(pageNum)}
                 disabled={disabled}
-                className={`min-w-8 h-8 px-2 flex items-center justify-center text-xs font-medium transition ${
+                className={`min-w-8 h-8 px-2 flex items-center justify-center text-xs font-medium transition cursor-pointer ${
                   isActive
-                    ? 'bg-neutral-900 text-white font-semibold shadow-xs'
-                    : 'text-neutral-700 hover:bg-neutral-100'
+                    ? 'bg-brand-primary text-white font-semibold shadow-xs'
+                    : 'text-neutral-700 hover:bg-neutral-100 hover:text-brand-charcoal'
                 } disabled:opacity-50`}
               >
                 {pageNum}

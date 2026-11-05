@@ -3,6 +3,7 @@ import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import { Button } from '../../../components/Button.tsx'
+import { Modal } from '../../../components/Modal.tsx'
 import { VariantDisplay } from '../../../lib/display-formatters.tsx'
 import { cancelSaleFn, getSaleFn } from '../../../server/functions/sales.ts'
 import { createReturnFn } from '../../../server/functions/returns.ts'
@@ -421,186 +422,165 @@ function SaleDetailPage() {
       )}
 
       {/* Cancel Order Modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-neutral-900">
-              Cancel Order {sale.orderNumber}?
-            </h3>
-            <p className="text-sm text-neutral-600">
-              Cancelling will reverse this sale, mark the order cancelled, and
-              restore all quantities back to the stock at{' '}
-              <strong>{sale.locationName}</strong>. This action cannot be undone.
-            </p>
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        title={`Cancel Order ${sale.orderNumber}?`}
+        description={`Cancelling will reverse this sale, mark the order cancelled, and restore all quantities back to stock at ${sale.locationName}.`}
+        size="sm"
+      >
+        <form onSubmit={handleConfirmCancel} className="flex flex-col flex-1 min-h-0">
+          <Modal.Body className="space-y-4">
+            {error && <Modal.Alert>{error}</Modal.Alert>}
 
-            {error && (
-              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-                {error}
-              </div>
-            )}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Cancellation Reason <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                required
+                minLength={3}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Order placed by error..."
+                rows={3}
+                className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </div>
+          </Modal.Body>
 
-            <form onSubmit={handleConfirmCancel} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                  Cancellation Reason <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  required
-                  minLength={3}
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="e.g. Order placed by error..."
-                  rows={3}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="secondary"
-                  disabled={cancelPending}
-                  onClick={() => setShowCancelModal(false)}
-                >
-                  Nevermind
-                </Button>
-                <Button
-                  type="submit"
-                  variant="danger"
-                  disabled={cancelReason.trim().length < 3}
-                  isLoading={cancelPending}
-                >
-                  Confirm Order Cancellation
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              disabled={cancelPending}
+              onClick={() => setShowCancelModal(false)}
+            >
+              Nevermind
+            </Button>
+            <Button
+              type="submit"
+              variant="danger"
+              disabled={cancelReason.trim().length < 3}
+              isLoading={cancelPending}
+            >
+              Confirm Cancellation
+            </Button>
+          </Modal.Footer>
+        </form>
+      </Modal>
 
       {/* Process Customer Return Modal */}
-      {showReturnModal && (
-        <div className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div>
-              <h3 className="text-lg font-bold text-neutral-900">
-                Process Customer Return
-              </h3>
-              <p className="text-xs text-neutral-500">
-                Select items to return for order {sale.orderNumber}. Restocked
-                items will be added back to <strong>{sale.locationName}</strong>.
-              </p>
-            </div>
+      <Modal
+        isOpen={showReturnModal}
+        onClose={() => setShowReturnModal(false)}
+        title="Process Customer Return"
+        description={`Select items to return for order ${sale.orderNumber}. Restocked items will be returned to ${sale.locationName}.`}
+        size="md"
+      >
+        <form onSubmit={handleConfirmReturn} className="flex flex-col flex-1 min-h-0">
+          <Modal.Body className="space-y-4">
+            {error && <Modal.Alert>{error}</Modal.Alert>}
 
-            {error && (
-              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-                {error}
-              </div>
-            )}
+            <div className="space-y-3">
+              {sale.items.map((item) => {
+                const summary = returnableSummary.itemsMap.get(item.id)
+                const maxReturnable = summary?.maxReturnable || 0
+                if (maxReturnable <= 0) return null
 
-            <form onSubmit={handleConfirmReturn} className="space-y-4">
-              <div className="space-y-3">
-                {sale.items.map((item) => {
-                  const summary = returnableSummary.itemsMap.get(item.id)
-                  const maxReturnable = summary?.maxReturnable || 0
-                  if (maxReturnable <= 0) return null
+                const currentInput = returnQuantities[item.id] || ''
 
-                  const currentInput = returnQuantities[item.id] || ''
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded-lg border border-neutral-200 bg-neutral-50/60 flex items-center justify-between gap-3"
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium text-sm text-neutral-900">
-                          {item.productName}
-                        </div>
-                        <div className="text-xs text-neutral-500">
-                          ${Number(item.unitPrice).toFixed(2)} each · Max
-                          returnable:{' '}
-                          <span className="font-semibold text-neutral-700">
-                            {maxReturnable} {item.unit}
-                          </span>
-                        </div>
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3 border border-neutral-200 bg-neutral-50/70 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm text-neutral-900 truncate">
+                        {item.productName}
                       </div>
-
-                      <div className="w-28">
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            max={maxReturnable}
-                            step={item.unit === 'piece' ? '1' : '0.001'}
-                            placeholder="0"
-                            value={currentInput}
-                            onChange={(e) => {
-                              const val = e.target.value
-                              setReturnQuantities((prev) => ({
-                                ...prev,
-                                [item.id]: val,
-                              }))
-                            }}
-                            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm font-medium text-neutral-900 bg-white focus:outline-none focus:border-neutral-900"
-                          />
-                          <span className="absolute right-2 top-2 text-xs text-neutral-400">
-                            {item.unit}
-                          </span>
-                        </div>
+                      <div className="text-xs text-neutral-500 mt-0.5">
+                        ${Number(item.unitPrice).toFixed(2)} each · Max returnable:{' '}
+                        <span className="font-semibold text-neutral-800">
+                          {maxReturnable} {item.unit}
+                        </span>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                  Reason for Return <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  required
-                  minLength={3}
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  placeholder="e.g. Defective seam, wrong size requested by customer..."
-                  rows={2}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
-                />
-              </div>
+                    <div className="w-28 flex-shrink-0">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          max={maxReturnable}
+                          step={item.unit === 'piece' ? '1' : '0.001'}
+                          placeholder="0"
+                          value={currentInput}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setReturnQuantities((prev) => ({
+                              ...prev,
+                              [item.id]: val,
+                            }))
+                          }}
+                          className="w-full border border-neutral-300 px-2.5 py-1.5 text-sm font-medium text-neutral-900 bg-white focus:outline-none focus:border-neutral-900"
+                        />
+                        <span className="absolute right-2 top-2 text-xs text-neutral-400 select-none">
+                          {item.unit}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
 
-              <div className="flex items-center justify-between border-t border-neutral-200 pt-3">
-                <div>
-                  <span className="text-xs text-neutral-500 block">
-                    Total Refund
-                  </span>
-                  <span className="text-xl font-bold text-neutral-900">
-                    ${returnRefundTotal}
-                  </span>
-                </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Reason for Return <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                required
+                minLength={3}
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+                placeholder="e.g. Defective seam, wrong size requested by customer..."
+                rows={2}
+                className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </div>
+          </Modal.Body>
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    disabled={returnPending}
-                    onClick={() => setShowReturnModal(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={
-                      Number(returnRefundTotal) <= 0 ||
-                      returnReason.trim().length < 3
-                    }
-                    isLoading={returnPending}
-                  >
-                    Authorize Refund
-                  </Button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          <Modal.Footer className="justify-between">
+            <div>
+              <span className="text-xs text-neutral-500 block">Total Refund</span>
+              <span className="text-lg font-bold text-neutral-900">
+                ${returnRefundTotal}
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                disabled={returnPending}
+                onClick={() => setShowReturnModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  Number(returnRefundTotal) <= 0 ||
+                  returnReason.trim().length < 3 ||
+                  returnPending
+                }
+                isLoading={returnPending}
+              >
+                Authorize Refund
+              </Button>
+            </div>
+          </Modal.Footer>
+        </form>
+      </Modal>
     </div>
   )
 }

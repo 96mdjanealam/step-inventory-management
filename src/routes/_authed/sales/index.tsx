@@ -1,11 +1,12 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
-import { LinkButton, TableActionLink } from '../../../components/Button.tsx'
+import { LinkButton } from '../../../components/Button.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
+import { useTableAutoRefresh } from '../../../lib/hooks/useTableAutoRefresh.ts'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listSalesFn } from '../../../server/functions/sales.ts'
 
@@ -45,6 +46,7 @@ export const Route = createFileRoute('/_authed/sales/')({
 })
 
 function SalesPage() {
+  useTableAutoRefresh()
   const { sales, total, page, pageSize } = Route.useLoaderData()
   const { search, locationId, status } = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -56,6 +58,8 @@ function SalesPage() {
         page: 1,
         search: query || undefined,
       }),
+      replace: true,
+      resetScroll: false,
     })
   }
 
@@ -67,6 +71,7 @@ function SalesPage() {
         page: 1,
         status: val || undefined,
       }),
+      resetScroll: false,
     })
   }
 
@@ -109,9 +114,10 @@ function SalesPage() {
                   locationId: val || undefined,
                   page: 1,
                 }),
+                resetScroll: false,
               })
             }
-            placeholder="All Store Locations"
+            placeholder="Filter by location"
             clearable
             className="w-full sm:w-64"
           />
@@ -199,18 +205,20 @@ function SalesPage() {
                           Completed
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-rose-100 text-rose-800">
                           Cancelled
                         </span>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <TableActionLink
+                      <LinkButton
+                        size="xs"
+                        variant="secondary"
                         to="/sales/$saleId"
                         params={{ saleId: sale.id }}
                       >
                         View Details
-                      </TableActionLink>
+                      </LinkButton>
                     </td>
                   </tr>
                 ))
@@ -231,6 +239,7 @@ function SalesPage() {
                   ...prev,
                   page: newPage,
                 }),
+                resetScroll: false,
               })
             }
             onPageSizeChange={(newPageSize) =>
@@ -240,6 +249,7 @@ function SalesPage() {
                   pageSize: newPageSize,
                   page: 1,
                 }),
+                resetScroll: false,
               })
             }
           />

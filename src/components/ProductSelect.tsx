@@ -19,6 +19,7 @@ export interface ProductSelectItem {
 export interface ProductSelectProps {
   value: string | null | undefined
   onChange: (value: string, product: ProductSelectItem | null) => void
+  locationId?: string
   placeholder?: string
   disabled?: boolean
   className?: string
@@ -29,7 +30,8 @@ export interface ProductSelectProps {
 export function ProductSelect({
   value,
   onChange,
-  placeholder = '-- Choose Product --',
+  locationId,
+  placeholder = 'Select product',
   disabled = false,
   className = '',
   clearable = false,
@@ -53,6 +55,7 @@ export function ProductSelect({
           pageSize,
           search: search || undefined,
           includeArchived: false,
+          locationId: locationId || undefined,
         },
       })
       return {
@@ -60,7 +63,7 @@ export function ProductSelect({
         total: res.total || 0,
       }
     },
-    [fetchProducts],
+    [fetchProducts, locationId],
   )
 
   function getThumbnail(p: ProductSelectItem) {
@@ -96,6 +99,7 @@ export function ProductSelect({
       className={className}
       clearable={clearable}
       initialSelectedItem={initialProduct}
+      reloadTrigger={locationId || ''}
       renderSelected={(p) => {
         if (!p) return null
         const { line1, line2 } = formatProductInfo({

@@ -1,6 +1,27 @@
 
 @import "tailwindcss";
 
+:root {
+  --color-brand-primary: #D04B50;
+  --color-brand-dark: #A9353D;
+  --color-brand-bg: #FFF4F1;
+  --color-brand-charcoal: #34383D;
+  --color-brand-coral: #F0B6A8;
+}
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  --color-brand-primary: #D04B50;
+  --color-brand-dark: #A9353D;
+  --color-brand-bg: #FFF4F1;
+  --color-brand-charcoal: #34383D;
+  --color-brand-coral: #F0B6A8;
+
+  --color-charcoal: #34383D;
+  --color-neutral-900: #34383D;
+}
+
 *,
 *::before,
 *::after {
@@ -16,5 +37,25 @@ body,
 
 body {
   margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-brand-charcoal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.2s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
 }
 

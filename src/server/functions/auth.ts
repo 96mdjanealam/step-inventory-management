@@ -23,7 +23,7 @@ export const loginFn = createServerFn({ method: 'POST' })
       return { error: 'Invalid email or password' }
     }
 
-    throw redirect({ to: '/' })
+    throw redirect({ to: '/dashboard' })
   })
 
 export const logoutFn = createServerFn({ method: 'POST' }).handler(async () => {

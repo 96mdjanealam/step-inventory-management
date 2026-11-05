@@ -1,21 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { Plus } from 'lucide-react'
+import { ArrowRight, ExternalLink, Plus } from 'lucide-react'
 import { z } from 'zod'
-import {
-  Button,
-  SmallButton,
-  SmallLinkButton,
-  TableActionButton,
-} from '../../../components/Button.tsx'
+import { Button, LinkButton } from '../../../components/Button.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
+import { Modal } from '../../../components/Modal.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { VariantSelect } from '../../../components/VariantSelect.tsx'
+import { useTableAutoRefresh } from '../../../lib/hooks/useTableAutoRefresh.ts'
 import {
   VariantDisplay,
 } from '../../../lib/display-formatters.tsx'
@@ -184,6 +181,17 @@ function InventoryPage() {
   const [transferPending, setTransferPending] = useState(false)
   const [transferError, setTransferError] = useState<string | null>(null)
 
+  const isModalOpen = Boolean(
+    showInflowModal ||
+      adjustingItem ||
+      transferringItem ||
+      showCreateStoreModal ||
+      editingLocation ||
+      actionPendingId,
+  )
+
+  useTableAutoRefresh({ enabled: !isModalOpen })
+
   // Selected product details for Inflow
   const activeProduct = useMemo(
     () =>
@@ -201,6 +209,7 @@ function InventoryPage() {
         search: val || undefined,
       }),
       replace: true,
+      resetScroll: false,
     })
   }
 
@@ -211,6 +220,7 @@ function InventoryPage() {
         page: 1,
         storeType: (val || undefined) as 'ownstore' | 'franchise' | undefined,
       }),
+      resetScroll: false,
     })
   }
 
@@ -319,6 +329,8 @@ function InventoryPage() {
         page: 1,
         search: val || undefined,
       }),
+      replace: true,
+      resetScroll: false,
     })
   }
 
@@ -627,6 +639,7 @@ function InventoryPage() {
                       page: 1,
                       includeZeroQuantity: e.target.checked || undefined,
                     }),
+                    resetScroll: false,
                   })
                 }
                 className="border-neutral-300 text-neutral-900 focus:ring-neutral-900"
@@ -718,17 +731,19 @@ function InventoryPage() {
                       {!isDamagedLocation ? (
                         <TableCard.Cell align="right" className="whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
-                            <TableActionButton
-                              variant="default"
+                            <Button
+                              size="xs"
+                              variant="secondary"
                               onClick={() => {
                                 setAdjustError(null)
                                 setAdjustingItem(item)
                               }}
                             >
                               Adjust Stock
-                            </TableActionButton>
-                            <TableActionButton
-                              variant="default"
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="secondary"
                               onClick={() => {
                                 setTransferError(null)
                                 setTransferDestinationId('')
@@ -736,7 +751,7 @@ function InventoryPage() {
                               }}
                             >
                               Transfer Stock
-                            </TableActionButton>
+                            </Button>
                           </div>
                         </TableCard.Cell>
                       ) : null}
@@ -754,11 +769,13 @@ function InventoryPage() {
               onPageChange={(newPage) =>
                 navigate({
                   search: (prev) => ({ ...prev, page: newPage }),
+                  resetScroll: false,
                 })
               }
               onPageSizeChange={(newPageSize) =>
                 navigate({
                   search: (prev) => ({ ...prev, pageSize: newPageSize, page: 1 }),
+                  resetScroll: false,
                 })
               }
             />
@@ -766,150 +783,127 @@ function InventoryPage() {
         </TableCard>
 
         {/* MODAL 1: RECEIVE STOCK (INFLOW) */}
-        {showInflowModal ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-lg bg-white p-6 shadow-xl border border-neutral-300">
-              <h3 className="mb-1 text-lg font-semibold text-gray-900">
-                Receive Stock
-              </h3>
-              <p className="mb-4 text-xs text-gray-500">
-                Receiving into:{' '}
-                <span className="font-semibold text-gray-800">
-                  {loc?.name}
-                </span>
-              </p>
+        <Modal
+          isOpen={showInflowModal}
+          onClose={() => setShowInflowModal(false)}
+          title="Receive Stock"
+          description={`Receiving inventory into: ${loc?.name ?? ''}`}
+          size="md"
+        >
+          <form onSubmit={handleInflowSubmit} className="flex flex-col flex-1 min-h-0">
+            <Modal.Body className="space-y-3.5">
+              {inflowError && <Modal.Alert>{inflowError}</Modal.Alert>}
 
-              {inflowError ? (
-                <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
-                  {inflowError}
-                </p>
-              ) : null}
-
-              <form
-                onSubmit={handleInflowSubmit}
-                className="flex flex-col gap-3"
-              >
-                {/* 1. Product Selection */}
-                <div className="flex flex-col gap-1 text-sm font-medium">
-                  <label className="text-xs font-semibold text-gray-700">
-                    Product *
-                  </label>
-                  <ProductSelect
-                    value={selectedProductId}
-                    onChange={(val) => handleProductChange(val)}
-                    placeholder="-- Choose Product --"
-                  />
-                </div>
-
-                {/* 2. Variant Selection */}
-                <div className="flex flex-col gap-1 text-sm font-medium">
-                  <label className="text-xs font-semibold text-gray-700">
-                    Product Variant *
-                  </label>
-                  <VariantSelect
-                    productId={selectedProductId}
-                    value={selectedVariantId}
-                    onChange={(val) => setSelectedVariantId(val)}
-                    placeholder="-- Choose Variant --"
-                    disabled={!selectedProductId}
-                  />
-                </div>
-
-                {/* 3. Quantity Input with Unit */}
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Quantity ({activeProduct?.unit || 'unit'}) *
-                  <div className="relative flex items-center">
-                    <input
-                      name="quantity"
-                      required
-                      type="number"
-                      step={
-                        activeProduct?.measurementType === 'count'
-                          ? '1'
-                          : '0.001'
-                      }
-                      min={
-                        activeProduct?.measurementType === 'count'
-                          ? '1'
-                          : '0.001'
-                      }
-                      placeholder={
-                        activeProduct?.measurementType === 'count'
-                          ? 'e.g. 25'
-                          : 'e.g. 12.500'
-                      }
-                      className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm"
-                    />
-                    <span className="pointer-events-none absolute right-3 text-xs font-semibold text-gray-500">
-                      {activeProduct?.unit}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-400">
-                    Measurement:{' '}
-                    {activeProduct?.measurementType === 'count'
-                      ? 'Whole units (pieces, items)'
-                      : `Decimals supported (${activeProduct?.measurementType})`}
-                  </span>
+              {/* 1. Product Selection */}
+              <div className="flex flex-col gap-1 text-sm font-medium">
+                <label className="text-xs font-semibold text-neutral-700 uppercase tracking-wider">
+                  Product *
                 </label>
+                <ProductSelect
+                  value={selectedProductId}
+                  onChange={(val) => handleProductChange(val)}
+                  placeholder="Select product"
+                />
+              </div>
 
-                {/* 4. Note/Reference */}
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Receipt Note / PO Reference
+              {/* 2. Variant Selection */}
+              <div className="flex flex-col gap-1 text-sm font-medium">
+                <label className="text-xs font-semibold text-neutral-700 uppercase tracking-wider">
+                  Product Variant *
+                </label>
+                <VariantSelect
+                  productId={selectedProductId}
+                  value={selectedVariantId}
+                  onChange={(val) => setSelectedVariantId(val)}
+                  placeholder="Select variant"
+                  disabled={!selectedProductId}
+                />
+              </div>
+
+              {/* 3. Quantity Input with Unit */}
+              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                Quantity ({activeProduct?.unit || 'unit'}) *
+                <div className="relative flex items-center">
                   <input
-                    name="reason"
-                    placeholder="e.g. Supplier PO #1002 or Invoice #5541"
-                    className="border border-neutral-300 px-3 py-2 text-sm"
+                    name="quantity"
+                    required
+                    type="number"
+                    step={
+                      activeProduct?.measurementType === 'count'
+                        ? '1'
+                        : '0.001'
+                    }
+                    min={
+                      activeProduct?.measurementType === 'count'
+                        ? '1'
+                        : '0.001'
+                    }
+                    placeholder={
+                      activeProduct?.measurementType === 'count'
+                        ? 'e.g. 25'
+                        : 'e.g. 12.500'
+                    }
+                    className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm focus:border-neutral-900 focus:outline-none bg-white font-medium"
                   />
-                </label>
-
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setShowInflowModal(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={!selectedVariantId}
-                    isLoading={inflowPending}
-                  >
-                    Record Inflow
-                  </Button>
+                  <span className="pointer-events-none absolute right-3 text-xs font-semibold text-neutral-400 select-none">
+                    {activeProduct?.unit}
+                  </span>
                 </div>
-              </form>
-            </div>
-          </div>
-        ) : null}
+                <span className="text-[11px] text-neutral-400">
+                  Measurement:{' '}
+                  {activeProduct?.measurementType === 'count'
+                    ? 'Whole units (pieces, items)'
+                    : `Decimals supported (${activeProduct?.measurementType})`}
+                </span>
+              </label>
+
+              {/* 4. Note/Reference */}
+              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                Receipt Note / PO Reference
+                <input
+                  name="reason"
+                  placeholder="e.g. Supplier PO #1002 or Invoice #5541"
+                  className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+                />
+              </label>
+            </Modal.Body>
+
+            <Modal.Footer>
+              <Button
+                variant="secondary"
+                onClick={() => setShowInflowModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!selectedVariantId}
+                isLoading={inflowPending}
+              >
+                Record Inflow
+              </Button>
+            </Modal.Footer>
+          </form>
+        </Modal>
 
         {/* MODAL 2: ADJUST STOCK */}
-        {adjustingItem ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-md bg-white p-6 shadow-xl border border-neutral-300">
-              <h3 className="mb-1 text-lg font-semibold text-gray-900">
-                Adjust Stock
-              </h3>
-              <p className="mb-4 text-xs text-gray-500">
-                {adjustingItem.product.name} (SKU: {adjustingItem.variant.sku})
-                at {adjustingItem.location.name}
-                <br />
-                Current Stock:{' '}
-                <span className="font-bold text-gray-900">
-                  {adjustingItem.quantity} {adjustingItem.product.unit}
-                </span>
-              </p>
+        <Modal
+          isOpen={Boolean(adjustingItem)}
+          onClose={() => setAdjustingItem(null)}
+          title="Adjust Stock"
+          description={
+            adjustingItem
+              ? `${adjustingItem.product.name} (SKU: ${adjustingItem.variant.sku}) at ${adjustingItem.location.name} · Current Stock: ${adjustingItem.quantity} ${adjustingItem.product.unit}`
+              : ''
+          }
+          size="md"
+        >
+          {adjustingItem && (
+            <form onSubmit={handleAdjustSubmit} className="flex flex-col flex-1 min-h-0">
+              <Modal.Body className="space-y-3.5">
+                {adjustError && <Modal.Alert>{adjustError}</Modal.Alert>}
 
-              {adjustError ? (
-                <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
-                  {adjustError}
-                </p>
-              ) : null}
-
-              <form
-                onSubmit={handleAdjustSubmit}
-                className="flex flex-col gap-3"
-              >
-                <label className="flex flex-col gap-1 text-sm font-medium">
+                <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                   Adjustment Type
                   <Select
                     name="adjustmentType"
@@ -920,7 +914,7 @@ function InventoryPage() {
                   </Select>
                 </label>
 
-                <label className="flex flex-col gap-1 text-sm font-medium">
+                <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                   Adjustment Quantity ({adjustingItem.product.unit}) *
                   <div className="relative flex items-center">
                     <input
@@ -938,87 +932,73 @@ function InventoryPage() {
                           : '0.001'
                       }
                       placeholder="e.g. 5"
-                      className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm"
+                      className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm focus:border-neutral-900 focus:outline-none bg-white font-medium"
                     />
-                    <span className="pointer-events-none absolute right-3 text-xs font-semibold text-gray-500">
+                    <span className="pointer-events-none absolute right-3 text-xs font-semibold text-neutral-400 select-none">
                       {adjustingItem.product.unit}
                     </span>
                   </div>
                 </label>
 
-                <label className="flex flex-col gap-1 text-sm font-medium">
+                <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                   Reason * (Required for audit log)
                   <textarea
                     name="reason"
                     required
                     rows={2}
                     placeholder="e.g. Physical inventory count discrepancy, returned shipment correction..."
-                    className="border border-neutral-300 px-3 py-2 text-sm"
+                    className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
                   />
                 </label>
+              </Modal.Body>
 
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setAdjustingItem(null)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    isLoading={adjustPending}
-                  >
-                    Confirm Adjustment
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        ) : null}
+              <Modal.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => setAdjustingItem(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  isLoading={adjustPending}
+                >
+                  Confirm Adjustment
+                </Button>
+              </Modal.Footer>
+            </form>
+          )}
+        </Modal>
 
         {/* MODAL 3: TRANSFER STOCK */}
-        {transferringItem ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-md bg-white p-6 shadow-xl border border-neutral-300">
-              <h3 className="mb-1 text-lg font-semibold text-gray-900">
-                Transfer Stock
-              </h3>
-              <p className="mb-4 text-xs text-gray-500">
-                Item: {transferringItem.product.name} (SKU:{' '}
-                {transferringItem.variant.sku})
-                <br />
-                Source:{' '}
-                <span className="font-semibold text-gray-800">
-                  {loc?.name}
-                </span>{' '}
-                · Available:{' '}
-                <span className="font-bold text-gray-900">
-                  {transferringItem.quantity} {transferringItem.product.unit}
-                </span>
-              </p>
+        <Modal
+          isOpen={Boolean(transferringItem)}
+          onClose={() => setTransferringItem(null)}
+          title="Transfer Stock"
+          description={
+            transferringItem
+              ? `Item: ${transferringItem.product.name} (SKU: ${transferringItem.variant.sku}) · Available: ${transferringItem.quantity} ${transferringItem.product.unit}`
+              : ''
+          }
+          size="md"
+        >
+          {transferringItem && (
+            <form onSubmit={handleTransferSubmit} className="flex flex-col flex-1 min-h-0">
+              <Modal.Body className="space-y-3.5">
+                {transferError && <Modal.Alert>{transferError}</Modal.Alert>}
 
-              {transferError ? (
-                <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
-                  {transferError}
-                </p>
-              ) : null}
-
-              <form
-                onSubmit={handleTransferSubmit}
-                className="flex flex-col gap-3"
-              >
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-neutral-800">
+                <div className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                  <label className="text-xs font-semibold text-neutral-700 uppercase tracking-wider">
                     Destination Location *
                   </label>
                   <LocationSelect
                     value={transferDestinationId}
                     onChange={(val) => setTransferDestinationId(val)}
-                    placeholder="-- Select destination --"
+                    placeholder="Select destination location"
                   />
                 </div>
 
-                <label className="flex flex-col gap-1 text-sm font-medium">
+                <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                   Transfer Quantity ({transferringItem.product.unit}) *
                   <div className="relative flex items-center">
                     <input
@@ -1037,41 +1017,41 @@ function InventoryPage() {
                       }
                       max={transferringItem.quantity}
                       placeholder={`Max: ${transferringItem.quantity}`}
-                      className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm"
+                      className="w-full border border-neutral-300 px-3 py-2 pr-16 text-sm focus:border-neutral-900 focus:outline-none bg-white font-medium"
                     />
-                    <span className="pointer-events-none absolute right-3 text-xs font-semibold text-gray-500">
+                    <span className="pointer-events-none absolute right-3 text-xs font-semibold text-neutral-400 select-none">
                       {transferringItem.product.unit}
                     </span>
                   </div>
                 </label>
 
-                <label className="flex flex-col gap-1 text-sm font-medium">
+                <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                   Transfer Notes / Memo
                   <input
                     name="notes"
                     placeholder="e.g. Stock replenishment for downtown store"
-                    className="border border-neutral-300 px-3 py-2 text-sm"
+                    className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
                   />
                 </label>
+              </Modal.Body>
 
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setTransferringItem(null)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    isLoading={transferPending}
-                  >
-                    Send Transfer
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        ) : null}
+              <Modal.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => setTransferringItem(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  isLoading={transferPending}
+                >
+                  Send Transfer
+                </Button>
+              </Modal.Footer>
+            </form>
+          )}
+        </Modal>
       </main>
     )
   }
@@ -1189,20 +1169,22 @@ function InventoryPage() {
                 <span className="text-xs text-neutral-400">
                   {warehouseLoc.address || 'Central Storage & Fulfillment'}
                 </span>
-                <SmallLinkButton
+                <LinkButton
+                  size="xs"
                   to="/inventory"
                   search={{ locationId: warehouseLoc.id }}
                   variant="primary"
+                  rightIcon={<ArrowRight className="w-3 h-3" />}
                 >
-                  Manage Stock →
-                </SmallLinkButton>
+                  Manage Stock
+                </LinkButton>
               </div>
             </div>
           ) : null}
 
           {/* Central Damaged Stock Card */}
           {damagedLoc ? (
-            <div className="flex flex-col justify-between border border-rose-200 bg-rose-50/20 p-5 shadow-xs transition hover:border-rose-300">
+            <div className="flex flex-col justify-between border border-rose-200 bg-white p-5 shadow-xs transition hover:border-rose-300">
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -1264,13 +1246,13 @@ function InventoryPage() {
                 <Link
                   to="/damage"
                   search={{ status: 'disposed' }}
-                  className="text-xs font-semibold text-rose-700 hover:underline"
+                  className="text-xs font-semibold text-rose-700 hover:underline inline-flex items-center gap-1"
                 >
-                  View Disposed / Wasted ↗
+                  View Disposed / Wasted <ExternalLink  className="w-3 h-3"/>
                 </Link>
-                <SmallLinkButton to="/damage" variant="danger">
-                  Manage Damaged Stock →
-                </SmallLinkButton>
+                <LinkButton size="xs" to="/damage" variant="dangerSoft" rightIcon={<ArrowRight className="w-3 h-3" />}>
+                  Manage Damaged Stock 
+                </LinkButton>
               </div>
             </div>
           ) : null}
@@ -1399,17 +1381,19 @@ function InventoryPage() {
 
                     <TableCard.Cell align="right" className="whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
-                        <SmallLinkButton
+                        <LinkButton
+                          size="xs"
                           to="/inventory"
                           search={{ locationId: store.id }}
                           variant="primary"
                         >
                           View Stock
-                        </SmallLinkButton>
+                        </LinkButton>
 
                         {isAdmin ? (
                           <>
-                            <SmallButton
+                            <Button
+                              size="xs"
                               variant="outline"
                               onClick={() => {
                                 setEditError(null)
@@ -1422,15 +1406,16 @@ function InventoryPage() {
                               }}
                             >
                               Edit
-                            </SmallButton>
+                            </Button>
 
-                            <SmallButton
-                              variant={store.isActive ? 'danger' : 'success'}
+                            <Button
+                              size="xs"
+                              variant={store.isActive ? 'dangerSoft' : 'success'}
                               disabled={actionPendingId === store.id}
                               onClick={() => handleToggleStatus(store)}
                             >
                               {store.isActive ? 'Deactivate' : 'Activate'}
-                            </SmallButton>
+                            </Button>
                           </>
                         ) : null}
                       </div>
@@ -1453,6 +1438,7 @@ function InventoryPage() {
                     ...prev,
                     page: newPage,
                   }),
+                  resetScroll: false,
                 })
               }
               onPageSizeChange={(newPageSize) =>
@@ -1462,6 +1448,7 @@ function InventoryPage() {
                     pageSize: newPageSize,
                     page: 1,
                   }),
+                  resetScroll: false,
                 })
               }
             />
@@ -1470,145 +1457,135 @@ function InventoryPage() {
       </div>
 
       {/* OVERVIEW MODAL 1: CREATE STORE */}
-      {showCreateStoreModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md bg-white p-6 shadow-xl border border-neutral-300">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Create New Store
-            </h3>
+      <Modal
+        isOpen={showCreateStoreModal}
+        onClose={() => setShowCreateStoreModal(false)}
+        title="Create New Store"
+        description="Add a new retail store or franchise location."
+        size="sm"
+      >
+        <form onSubmit={handleCreateStoreSubmit} className="flex flex-col flex-1 min-h-0">
+          <Modal.Body className="space-y-3.5">
+            {createStoreError && <Modal.Alert>{createStoreError}</Modal.Alert>}
 
-            {createStoreError ? (
-              <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
-                {createStoreError}
-              </p>
-            ) : null}
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              Store Name *
+              <input
+                name="name"
+                required
+                placeholder="e.g. Uptown Branch"
+                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </label>
 
-            <form
-              onSubmit={handleCreateStoreSubmit}
-              className="flex flex-col gap-3"
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              Store Type *
+              <Select
+                name="storeType"
+                defaultValue="ownstore"
+              >
+                <option value="ownstore">Own Store</option>
+                <option value="franchise">Franchise</option>
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              Address
+              <input
+                name="address"
+                placeholder="Street address, city"
+                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              Phone
+              <input
+                name="phone"
+                placeholder="Contact phone number"
+                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </label>
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() => setShowCreateStoreModal(false)}
             >
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Store Name *
-                <input
-                  name="name"
-                  required
-                  placeholder="e.g. Uptown Branch"
-                  className="border border-neutral-300 px-3 py-2 text-sm"
-                />
-              </label>
-
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Store Type *
-                <Select
-                  name="storeType"
-                  defaultValue="ownstore"
-                >
-                  <option value="ownstore">Own Store</option>
-                  <option value="franchise">Franchise</option>
-                </Select>
-              </label>
-
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Address
-                <input
-                  name="address"
-                  placeholder="Street address, city"
-                  className="border border-neutral-300 px-3 py-2 text-sm"
-                />
-              </label>
-
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Phone
-                <input
-                  name="phone"
-                  placeholder="Contact phone number"
-                  className="border border-neutral-300 px-3 py-2 text-sm"
-                />
-              </label>
-
-              <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowCreateStoreModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  isLoading={createStorePending}
-                >
-                  Create Store
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              isLoading={createStorePending}
+            >
+              Create Store
+            </Button>
+          </Modal.Footer>
+        </form>
+      </Modal>
 
       {/* OVERVIEW MODAL 2: EDIT LOCATION */}
-      {editingLocation ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md bg-white p-6 shadow-xl border border-neutral-300">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Edit Location
-            </h3>
+      <Modal
+        isOpen={Boolean(editingLocation)}
+        onClose={() => setEditingLocation(null)}
+        title="Edit Location"
+        description="Update address, phone number, and branch name."
+        size="sm"
+      >
+        {editingLocation && (
+          <form onSubmit={handleUpdateLocationSubmit} className="flex flex-col flex-1 min-h-0">
+            <Modal.Body className="space-y-3.5">
+              {editError && <Modal.Alert>{editError}</Modal.Alert>}
 
-            {editError ? (
-              <p className="mb-3 bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
-                {editError}
-              </p>
-            ) : null}
-
-            <form
-              onSubmit={handleUpdateLocationSubmit}
-              className="flex flex-col gap-3"
-            >
-              <label className="flex flex-col gap-1 text-sm font-medium">
+              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                 Location Name *
                 <input
                   name="name"
                   defaultValue={editingLocation.name}
                   required
-                  className="border border-neutral-300 px-3 py-2 text-sm"
+                  className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
                 />
               </label>
 
-              <label className="flex flex-col gap-1 text-sm font-medium">
+              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                 Address
                 <input
                   name="address"
                   defaultValue={editingLocation.address ?? ''}
-                  className="border border-neutral-300 px-3 py-2 text-sm"
+                  placeholder="Street address, city"
+                  className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
                 />
               </label>
 
-              <label className="flex flex-col gap-1 text-sm font-medium">
+              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                 Phone
                 <input
                   name="phone"
                   defaultValue={editingLocation.phone ?? ''}
-                  className="border border-neutral-300 px-3 py-2 text-sm"
+                  placeholder="Contact phone number"
+                  className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
                 />
               </label>
+            </Modal.Body>
 
-              <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setEditingLocation(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  isLoading={editPending}
-                >
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            <Modal.Footer>
+              <Button
+                variant="secondary"
+                onClick={() => setEditingLocation(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                isLoading={editPending}
+              >
+                Save Changes
+              </Button>
+            </Modal.Footer>
+          </form>
+        )}
+      </Modal>
     </main>
   )
 }

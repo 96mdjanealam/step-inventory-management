@@ -42,7 +42,7 @@ export function VariantSelect({
   onChange,
   locationId,
   productId,
-  placeholder = '-- Choose Variant --',
+  placeholder = 'Select variant',
   disabled = false,
   className = '',
   clearable = false,
