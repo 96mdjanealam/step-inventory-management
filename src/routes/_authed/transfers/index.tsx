@@ -73,7 +73,7 @@ function TransfersPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -115,16 +115,16 @@ function TransfersPage() {
       {/* Transfers Table Card */}
       <TableCard>
         <TableCard.Container>
-          <TableCard.Table>
+          <TableCard.Table className="table-fixed min-w-[850px]">
             <TableCard.Header>
-              <tr>
-                <TableCard.Th>Date & Time</TableCard.Th>
-                <TableCard.Th>Product / Variant</TableCard.Th>
-                <TableCard.Th>Movement Route</TableCard.Th>
-                <TableCard.Th className="text-right">Quantity</TableCard.Th>
-                <TableCard.Th>Dispatched By</TableCard.Th>
-                <TableCard.Th>Reference / Notes</TableCard.Th>
-              </tr>
+              <TableCard.Row isHeader>
+                <TableCard.Th className="w-28 whitespace-nowrap text-xs">Date & Time</TableCard.Th>
+                <TableCard.Th className="w-48 text-xs">Product / Variant</TableCard.Th>
+                <TableCard.Th className="w-48 text-xs">Movement Route</TableCard.Th>
+                <TableCard.Th className="w-24 text-right whitespace-nowrap text-xs">Quantity</TableCard.Th>
+                <TableCard.Th className="w-28 whitespace-nowrap text-xs">Dispatched By</TableCard.Th>
+                <TableCard.Th className="text-xs w-48">Reference / Notes</TableCard.Th>
+              </TableCard.Row>
             </TableCard.Header>
             <TableCard.Body>
               {items.length === 0 ? (
@@ -135,23 +135,31 @@ function TransfersPage() {
               ) : (
                 items.map((t) => {
                   const img = t.variant.image || t.product.images?.[0]
+                  const createdDate = new Date(t.createdAt)
 
                   return (
                     <TableCard.Row key={t.id}>
-                      <TableCard.Td className="text-xs text-neutral-500 whitespace-nowrap">
-                        {new Date(t.createdAt).toLocaleString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                      {/* Date & Time: 2 lines */}
+                      <TableCard.Td className="whitespace-nowrap text-xs">
+                        <div className="font-medium text-neutral-800">
+                          {createdDate.toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </div>
+                        <div className="text-[11px] text-neutral-400">
+                          {createdDate.toLocaleTimeString(undefined, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
                       </TableCard.Td>
 
                       {/* Product & Variant with Image */}
                       <TableCard.Td>
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 flex items-center justify-center">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="h-9 w-9 shrink-0 overflow-hidden border border-neutral-200 bg-neutral-50 flex items-center justify-center">
                             {img ? (
                               <img
                                 src={img}
@@ -163,15 +171,16 @@ function TransfersPage() {
                                 }}
                               />
                             ) : (
-                              <ImageIcon className="h-5 w-5 text-neutral-300" />
+                              <ImageIcon className="h-4 w-4 text-neutral-300" />
                             )}
                           </div>
 
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <Link
                               to="/products/$productId"
                               params={{ productId: t.product.id }}
-                              className="font-semibold text-neutral-900 hover:underline block"
+                              className="font-semibold text-neutral-900 hover:underline block truncate text-xs"
+                              title={t.product.name}
                             >
                               {t.product.name}
                             </Link>
@@ -187,14 +196,14 @@ function TransfersPage() {
 
                       {/* Movement Route: From / To */}
                       <TableCard.Td className="text-xs leading-relaxed">
-                        <div className="flex flex-col gap-0.5">
-                          <div className="truncate max-w-[200px]" title={t.sourceLocation?.name}>
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <div className="truncate" title={t.sourceLocation?.name}>
                             <span className="font-medium text-neutral-400 mr-1">From:</span>
                             <span className="font-medium text-neutral-800">
                               {t.sourceLocation?.name ?? '—'}
                             </span>
                           </div>
-                          <div className="truncate max-w-[200px]" title={t.destinationLocation?.name}>
+                          <div className="truncate" title={t.destinationLocation?.name}>
                             <span className="font-semibold text-indigo-500 mr-1">To:</span>
                             <span className="font-semibold text-indigo-700">
                               {t.destinationLocation?.name ?? '—'}
@@ -204,7 +213,7 @@ function TransfersPage() {
                       </TableCard.Td>
 
                       {/* Quantity */}
-                      <TableCard.Td className="text-right font-bold text-neutral-900 whitespace-nowrap">
+                      <TableCard.Td className="text-right font-bold text-neutral-900 whitespace-nowrap text-xs">
                         {t.quantity}{' '}
                         <span className="text-xs font-normal text-neutral-500">
                           {t.product.unit}
@@ -212,12 +221,12 @@ function TransfersPage() {
                       </TableCard.Td>
 
                       {/* Dispatched By */}
-                      <TableCard.Td className="text-xs text-neutral-600 whitespace-nowrap">
+                      <TableCard.Td className="whitespace-nowrap text-xs text-neutral-600 truncate" title={t.user?.username ?? t.user?.role ?? 'System'}>
                         {t.user?.username ?? t.user?.role ?? 'System'}
                       </TableCard.Td>
 
-                      {/* Notes: wraps to 2nd line if needed */}
-                      <TableCard.Td className="text-xs text-neutral-600 max-w-xs break-words leading-relaxed" title={t.reason || ''}>
+                      {/* Reference / Notes */}
+                      <TableCard.Td className="text-xs text-neutral-600 break-words leading-relaxed" title={t.reason || ''}>
                         {t.reason || '—'}
                       </TableCard.Td>
                     </TableCard.Row>

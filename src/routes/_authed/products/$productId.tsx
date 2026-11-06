@@ -3,17 +3,23 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon, Plus } from 'lucide-react'
 import { Button, LinkButton } from '../../../components/Button.tsx'
-import { ImageUploader } from '../../../components/ImageUploader.tsx'
+import {
+  ImageUploader,
+  type UploadableImage,
+  processUploadableImage,
+  processUploadableImages,
+} from '../../../components/ImageUploader.tsx'
 import { Modal } from '../../../components/Modal.tsx'
 import { PriceInput } from '../../../components/PriceInput.tsx'
 import { Select } from '../../../components/Select.tsx'
-import { VariantDisplay } from '../../../lib/display-formatters.tsx'
+import { VariantDisplay, formatSku } from '../../../lib/display-formatters.tsx'
 import {
   archiveProductFn,
   getProductFn,
   restoreProductFn,
   updateProductFn,
 } from '../../../server/functions/products.ts'
+import { deleteImageFn, uploadImageFn } from '../../../server/functions/upload.ts'
 import {
   createVariantFn,
   toggleVariantActiveFn,
@@ -62,6 +68,8 @@ function ProductDetailPage() {
   const updateProduct = useServerFn(updateProductFn)
   const archiveProduct = useServerFn(archiveProductFn)
   const restoreProduct = useServerFn(restoreProductFn)
+  const uploadImage = useServerFn(uploadImageFn)
+  const deleteImage = useServerFn(deleteImageFn)
 
   const createVariant = useServerFn(createVariantFn)
   const updateVariant = useServerFn(updateVariantFn)
@@ -75,7 +83,7 @@ function ProductDetailPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   // Product Images State for editing
-  const [editImages, setEditImages] = useState<string[]>(product.images ?? [])
+  const [editImages, setEditImages] = useState<UploadableImage[]>(product.images ?? [])
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0)
 
   // Variant Modal State
@@ -86,7 +94,7 @@ function ProductDetailPage() {
   const [variantPending, setVariantPending] = useState(false)
   const [variantError, setVariantError] = useState<string | null>(null)
   const [variantAttributes, setVariantAttributes] = useState<AttributeItem[]>([])
-  const [variantImage, setVariantImage] = useState<string | undefined>(undefined)
+  const [variantImage, setVariantImage] = useState<UploadableImage | undefined>(undefined)
 
   const isAdmin = user.role === 'admin'
 
@@ -141,16 +149,33 @@ function ProductDetailPage() {
 
     setPending(true)
     try {
+      // 1. Upload only confirmed new image files
+      const finalImages = await processUploadableImages(
+        editImages,
+        uploadImage,
+      )
+
+      // 2. Identify removed images that should be cleaned up from storage
+      const oldImages = product.images ?? []
+      const removedImages = oldImages.filter((url) => !finalImages.includes(url))
+
+      // 3. Update database record
       await updateProduct({
         data: {
           id: product.id,
           name,
           category,
           targetConsumer,
-          images: editImages,
+          images: finalImages,
           description: description || undefined,
         },
       })
+
+      // 4. Safely clean up unreferenced images from Supabase Storage
+      for (const url of removedImages) {
+        deleteImage({ data: { url } }).catch(console.warn)
+      }
+
       await router.invalidate()
       setIsEditing(false)
     } catch (err) {
@@ -223,6 +248,17 @@ function ProductDetailPage() {
 
     setVariantPending(true)
     try {
+      // 1. Upload confirmed variant image if it's a new file
+      const finalVariantImage = await processUploadableImage(
+        variantImage,
+        uploadImage,
+      )
+
+      // 2. Identify if an existing variant image was replaced or cleared
+      const oldVariantImage = editingVariant?.image
+      const hasImageChanged =
+        oldVariantImage && oldVariantImage !== finalVariantImage
+
       if (editingVariant) {
         await updateVariant({
           data: {
@@ -230,7 +266,7 @@ function ProductDetailPage() {
             sku,
             discountedPrice,
             regularPrice,
-            image: variantImage,
+            image: finalVariantImage,
             attributes,
             isDefault,
           },
@@ -242,11 +278,16 @@ function ProductDetailPage() {
             sku,
             discountedPrice,
             regularPrice,
-            image: variantImage,
+            image: finalVariantImage,
             attributes,
             isDefault,
           },
         })
+      }
+
+      // 3. Clean up replaced old variant image from Supabase Storage
+      if (hasImageChanged && oldVariantImage) {
+        deleteImage({ data: { url: oldVariantImage } }).catch(console.warn)
       }
 
       await router.invalidate()
@@ -264,7 +305,7 @@ function ProductDetailPage() {
     v: (typeof product.variants)[number],
   ) {
     const nextState = !v.isActive
-    if (!nextState && !window.confirm(`Deactivate variant "${v.sku || 'Default'}"?`)) {
+    if (!nextState && !window.confirm(`Deactivate variant "${formatSku(v.sku) || 'Default'}"?`)) {
       return
     }
     setActionError(null)
@@ -283,32 +324,32 @@ function ProductDetailPage() {
     }
   }
 
-  const images = isEditing ? editImages : (product.images ?? [])
+  const images = product.images ?? []
   const currentCover = images[selectedGalleryIndex] ?? images[0]
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
+    <main className="mx-auto max-w-5xl p-4 sm:p-6">
       {/* Header bar */}
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
               {product.name}
             </h1>
             {product.isActive ? (
-              <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+              <span className="bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-semibold">
                 Active
               </span>
             ) : (
-              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
+              <span className="bg-neutral-100 text-neutral-600 px-2.5 py-0.5 text-xs font-semibold">
                 Archived
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500">Slug: {product.slug}</p>
+          <p className="text-xs text-neutral-500">Slug: {product.slug}</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <LinkButton
             to="/products"
             variant="secondary"
@@ -758,33 +799,47 @@ function ProductDetailPage() {
               </div>
 
               {variantAttributes.map((attr) => (
-                <div key={attr.id} className="flex gap-2">
-                  <input
-                    placeholder="Name (e.g. Size)"
-                    value={attr.key}
-                    onChange={(e) =>
-                      updateAttributeRow(attr.id, e.target.value, attr.value)
-                    }
-                    className="w-1/2 border border-neutral-300 bg-white px-2.5 py-1.5 text-xs focus:border-neutral-900 focus:outline-none"
-                  />
-                  <input
-                    placeholder="Value (e.g. Medium)"
-                    value={attr.value}
-                    onChange={(e) =>
-                      updateAttributeRow(attr.id, attr.key, e.target.value)
-                    }
-                    className="w-1/2 border border-neutral-300 bg-white px-2.5 py-1.5 text-xs focus:border-neutral-900 focus:outline-none"
-                  />
-                  {variantAttributes.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => removeAttributeRow(attr.id)}
-                      className="px-1 text-xs text-rose-500 hover:text-rose-700 cursor-pointer"
-                      title="Remove"
-                    >
-                      ✕
-                    </button>
-                  ) : null}
+                <div
+                  key={attr.id}
+                  className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 sm:p-0 bg-white sm:bg-transparent border sm:border-0 border-neutral-200"
+                >
+                  <div className="w-full sm:w-2/5 flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-neutral-500 sm:hidden w-12 shrink-0">
+                      Name:
+                    </span>
+                    <input
+                      placeholder="Name (e.g. Size)"
+                      value={attr.key}
+                      onChange={(e) =>
+                        updateAttributeRow(attr.id, e.target.value, attr.value)
+                      }
+                      className="w-full border border-neutral-300 bg-white px-2.5 py-1.5 text-xs focus:border-brand-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="w-full sm:flex-1 flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-neutral-500 sm:hidden w-12 shrink-0">
+                      Value:
+                    </span>
+                    <input
+                      placeholder="Value (e.g. Medium)"
+                      value={attr.value}
+                      onChange={(e) =>
+                        updateAttributeRow(attr.id, attr.key, e.target.value)
+                      }
+                      className="w-full flex-1 border border-neutral-300 bg-white px-2.5 py-1.5 text-xs focus:border-brand-primary focus:outline-none"
+                    />
+                    {variantAttributes.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeAttributeRow(attr.id)}
+                        className="p-1 text-xs text-rose-500 hover:text-rose-700 cursor-pointer shrink-0"
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

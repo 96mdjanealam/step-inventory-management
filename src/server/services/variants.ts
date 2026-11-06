@@ -73,7 +73,7 @@ export async function createVariant(
           action: 'variant.create',
           entityType: 'variant',
           entityId: created.id,
-          description: `Added variant for "${product.name}" (SKU: ${created.sku ?? 'None'}, Price: $${created.discountedPrice})`,
+          description: `Added variant for "${product.name}" (sku: ${created.sku ?? 'None'}, Price: $${created.discountedPrice})`,
           metadata: {
             productId: product.id,
             productName: product.name,
@@ -195,7 +195,7 @@ export async function updateVariant(
           action: 'variant.update',
           entityType: 'variant',
           entityId: updated.id,
-          description: `Updated variant (SKU: ${updated.sku ?? 'None'}, Price: $${updated.discountedPrice})`,
+          description: `Updated variant (sku: ${updated.sku ?? 'None'}, Price: $${updated.discountedPrice})`,
           metadata: {
             variantId: updated.id,
             productId: updated.productId,
@@ -285,7 +285,7 @@ export async function toggleVariantActive(
           action: 'variant.toggle',
           entityType: 'variant',
           entityId: updated.id,
-          description: `Deactivated variant (SKU: ${updated.sku ?? 'None'})`,
+          description: `Deactivated variant (sku: ${updated.sku ?? 'None'})`,
           metadata: {
             variantId: updated.id,
             productId: updated.productId,
@@ -325,7 +325,7 @@ export async function toggleVariantActive(
             action: 'variant.toggle',
             entityType: 'variant',
             entityId: updated.id,
-            description: `Activated variant (SKU: ${updated.sku ?? 'None'})`,
+            description: `Activated variant (sku: ${updated.sku ?? 'None'})`,
             metadata: {
               variantId: updated.id,
               productId: updated.productId,

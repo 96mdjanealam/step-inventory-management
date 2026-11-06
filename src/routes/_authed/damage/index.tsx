@@ -13,7 +13,7 @@ import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
 import { VariantSelect, type VariantSelectItem } from '../../../components/VariantSelect.tsx'
 import { useTableAutoRefresh } from '../../../lib/hooks/useTableAutoRefresh.ts'
-import { VariantDisplay } from '../../../lib/display-formatters.tsx'
+import { VariantDisplay, formatSku } from '../../../lib/display-formatters.tsx'
 import { listLocationsFn } from '../../../server/functions/locations.ts'
 import { listInventoryFn } from '../../../server/functions/inventory.ts'
 import {
@@ -264,7 +264,7 @@ function DamageReportsPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -822,7 +822,7 @@ function DamageReportsPage() {
         title={resolvingReport ? `Resolve Damaged Stock: ${resolvingReport.damageNumber}` : ''}
         description={
           resolvingReport
-            ? `${resolvingReport.quantity} ${resolvingReport.unit} of ${resolvingReport.productName} (${resolvingReport.sku}) currently in Central Damaged Stock.`
+            ? `${resolvingReport.quantity} ${resolvingReport.unit} of ${resolvingReport.productName} (${formatSku(resolvingReport.sku)}) currently in Central Damaged Stock.`
             : ''
         }
         size="md"

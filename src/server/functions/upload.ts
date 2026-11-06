@@ -82,3 +82,37 @@ export const uploadImageFn = createServerFn({ method: 'POST' })
     throw new Error('Failed to save image')
   })
 
+const deleteImageSchema = z.object({
+  url: z.string().min(1, 'No URL provided'),
+})
+
+export const deleteImageFn = createServerFn({ method: 'POST' })
+  .middleware([requireUser])
+  .validator(deleteImageSchema)
+  .handler(async ({ data }) => {
+    // 1. If it's a Supabase storage URL
+    try {
+      const match = data.url.match(/\/product-images\/(.+)$/)
+      if (match) {
+        const filePath = decodeURIComponent(match[1])
+        const supabase = createSupabaseAdminClient()
+        await supabase.storage.from('product-images').remove([filePath])
+      }
+    } catch (sbErr) {
+      console.warn('Supabase image removal warning:', sbErr)
+    }
+
+    // 2. If it's a local filesystem URL
+    try {
+      if (data.url.startsWith('/uploads/')) {
+        const fileName = path.basename(data.url)
+        const localPath = path.resolve(process.cwd(), 'public', 'uploads', fileName)
+        await fs.unlink(localPath)
+      }
+    } catch {
+      // file might not exist or read-only filesystem, safe to ignore
+    }
+
+    return { success: true }
+  })
+

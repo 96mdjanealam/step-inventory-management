@@ -106,7 +106,7 @@ export async function reportDamage(input: ReportDamageInput, userId: string) {
 
     if (!sourceRow || sourceQtyFixed3 < damageQtyFixed3) {
       throw new Error(
-        `Insufficient stock for "${variant.productName} (${variant.sku || 'No SKU'})" at ${sourceLocation.name}. Available: ${fromFixed3(sourceQtyFixed3)} ${variant.unit}, requested to quarantine: ${input.quantity} ${variant.unit}`,
+        `Insufficient stock for "${variant.productName} (${variant.sku ? `sku: ${variant.sku}` : 'No SKU'})" at ${sourceLocation.name}. Available: ${fromFixed3(sourceQtyFixed3)} ${variant.unit}, requested to quarantine: ${input.quantity} ${variant.unit}`,
       )
     }
 

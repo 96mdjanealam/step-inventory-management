@@ -3,11 +3,17 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { Button, LinkButton } from '../../../components/Button.tsx'
-import { ImageUploader } from '../../../components/ImageUploader.tsx'
+import {
+  ImageUploader,
+  type UploadableImage,
+  processUploadableImage,
+  processUploadableImages,
+} from '../../../components/ImageUploader.tsx'
 import { PriceInput } from '../../../components/PriceInput.tsx'
 import { Select } from '../../../components/Select.tsx'
 import { createProductSchema } from '../../../lib/schemas/product.ts'
 import { createProductFn } from '../../../server/functions/products.ts'
+import { uploadImageFn } from '../../../server/functions/upload.ts'
 
 export const Route = createFileRoute('/_authed/products/new')({
   component: NewProductPage,
@@ -35,7 +41,7 @@ interface VariantFormItem {
   sku: string
   discountedPrice: string
   regularPrice: string
-  image?: string
+  image?: UploadableImage
   attributes: AttributeItem[]
 }
 
@@ -64,6 +70,7 @@ function Field({
 
 function NewProductPage() {
   const createProduct = useServerFn(createProductFn)
+  const uploadImage = useServerFn(uploadImageFn)
   const navigate = useNavigate()
 
   // Basic Info State
@@ -76,7 +83,7 @@ function NewProductPage() {
     useState<MeasurementType>('count')
   const [unit, setUnit] = useState<string>('piece')
   const [description, setDescription] = useState('')
-  const [productImages, setProductImages] = useState<string[]>([])
+  const [productImages, setProductImages] = useState<UploadableImage[]>([])
 
   // Variant Mode State
   const [hasVariants, setHasVariants] = useState(false)
@@ -85,7 +92,7 @@ function NewProductPage() {
   const [singleSku, setSingleSku] = useState('')
   const [singleDiscountedPrice, setSingleDiscountedPrice] = useState('')
   const [singleRegularPrice, setSingleRegularPrice] = useState('')
-  const [singleImage, setSingleImage] = useState<string | undefined>(undefined)
+  const [singleImage, setSingleImage] = useState<UploadableImage | undefined>(undefined)
 
   // Multi-Variant Form State
   const [variants, setVariants] = useState<VariantFormItem[]>([
@@ -183,7 +190,7 @@ function NewProductPage() {
     setFieldErrors({})
     setFormError(null)
 
-    // Build payload
+    // Build provisional validation payload
     let payload: any = {
       name: name.trim(),
       category: category.trim(),
@@ -191,7 +198,7 @@ function NewProductPage() {
       measurementType,
       unit,
       description: description.trim() || undefined,
-      images: productImages,
+      images: [], // validate basic fields before uploading files
     }
 
     if (!hasVariants) {
@@ -199,7 +206,6 @@ function NewProductPage() {
       payload.sku = singleSku.trim() || undefined
       payload.discountedPrice = singleDiscountedPrice.trim() || undefined
       payload.regularPrice = singleRegularPrice.trim() || undefined
-      payload.image = singleImage || undefined
       payload.variants = []
     } else {
       // Multi-variant mode
@@ -215,7 +221,6 @@ function NewProductPage() {
         return {
           sku: v.sku.trim() || undefined,
           attributes: attrMap,
-          image: v.image || undefined,
           discountedPrice: v.discountedPrice.trim(),
           regularPrice: v.regularPrice.trim() || undefined,
         }
@@ -239,7 +244,54 @@ function NewProductPage() {
 
     setPending(true)
     try {
-      await createProduct({ data: parsed.data })
+      // Upload pending product images in parallel (only uploaded on confirmed save!)
+      const uploadedProductImages = await processUploadableImages(
+        productImages,
+        uploadImage,
+      )
+
+      let uploadedSingleImage: string | undefined = undefined
+      let uploadedVariants = payload.variants
+
+      if (!hasVariants) {
+        uploadedSingleImage = await processUploadableImage(
+          singleImage,
+          uploadImage,
+        )
+      } else {
+        uploadedVariants = await Promise.all(
+          variants.map(async (v) => {
+            const uploadedVarImg = await processUploadableImage(
+              v.image,
+              uploadImage,
+            )
+            const attrMap: Record<string, string> = {}
+            for (const attr of v.attributes) {
+              const k = attr.key.trim()
+              const val = attr.value.trim()
+              if (k && val) {
+                attrMap[k] = val
+              }
+            }
+            return {
+              sku: v.sku.trim() || undefined,
+              attributes: attrMap,
+              image: uploadedVarImg,
+              discountedPrice: v.discountedPrice.trim(),
+              regularPrice: v.regularPrice.trim() || undefined,
+            }
+          }),
+        )
+      }
+
+      const finalData = {
+        ...parsed.data,
+        images: uploadedProductImages,
+        image: uploadedSingleImage,
+        variants: hasVariants ? uploadedVariants : [],
+      }
+
+      await createProduct({ data: finalData })
       await navigate({ to: '/products' })
     } catch (error) {
       setFormError(
@@ -251,19 +303,19 @@ function NewProductPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <div className="mb-6 flex items-center justify-between border-b pb-4">
+    <main className="mx-auto max-w-3xl p-4 sm:p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
             Create New Product
           </h1>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-neutral-500">
             Add a new product with images and optional variants to your inventory.
           </p>
         </div>
         <Link
           to="/products"
-          className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          className="self-start sm:self-auto border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
         >
           Back to products
         </Link>
@@ -387,14 +439,14 @@ function NewProductPage() {
             </div>
 
             {/* Mode Switcher */}
-            <div className="mt-2 flex rounded-md bg-gray-100 p-1 sm:mt-0">
+            <div className="mt-2 w-full sm:w-auto flex bg-neutral-100 p-1 sm:mt-0">
               <button
                 type="button"
                 onClick={() => setHasVariants(false)}
-                className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                className={`flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium transition-colors text-center ${
                   !hasVariants
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-neutral-900 shadow-xs'
+                    : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 Simple Product
@@ -402,10 +454,10 @@ function NewProductPage() {
               <button
                 type="button"
                 onClick={() => setHasVariants(true)}
-                className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                className={`flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium transition-colors text-center ${
                   hasVariants
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-neutral-900 shadow-xs'
+                    : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 Multiple Variants
@@ -511,65 +563,81 @@ function NewProductPage() {
                   {/* Attributes builder for this variant */}
                   <div className="mb-4">
                     <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-gray-600 uppercase">
+                      <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">
                         Attributes (Size, Color, etc.)
                       </span>
                       <button
                         type="button"
                         onClick={() => handleAddAttribute(vIdx)}
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                        className="inline-flex items-center gap-1 text-xs text-brand-primary hover:text-brand-dark font-medium cursor-pointer"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
                         Add Attribute
                       </button>
                     </div>
 
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2.5">
                       {v.attributes.map((attr, aIdx) => (
-                        <div key={attr.id} className="flex items-center gap-2">
-                          <input
-                            placeholder="Name (e.g. Size, Color)"
-                            value={attr.key}
-                            onChange={(e) =>
-                              handleUpdateAttribute(
-                                vIdx,
-                                aIdx,
-                                e.target.value,
-                                attr.value,
-                              )
-                            }
-                            className="w-1/3 rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs focus:border-black focus:outline-none"
-                          />
-                          <input
-                            placeholder="Value (e.g. Medium, Red)"
-                            value={attr.value}
-                            onChange={(e) =>
-                              handleUpdateAttribute(
-                                vIdx,
-                                aIdx,
-                                attr.key,
-                                e.target.value,
-                              )
-                            }
-                            className="flex-1 rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs focus:border-black focus:outline-none"
-                          />
-                          {v.attributes.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAttribute(vIdx, aIdx)}
-                              className="text-gray-400 hover:text-red-600 text-xs px-1"
-                              title="Delete attribute"
-                            >
-                              ✕
-                            </button>
-                          )}
+                        <div
+                          key={attr.id}
+                          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 sm:p-0 bg-neutral-100/60 sm:bg-transparent border sm:border-0 border-neutral-200"
+                        >
+                          <div className="w-full sm:w-2/5 flex items-center gap-2">
+                            <span className="text-[11px] font-medium text-neutral-500 sm:hidden w-12 shrink-0">
+                              Name:
+                            </span>
+                            <input
+                              type="text"
+                              placeholder="Name (e.g. Size, Color)"
+                              value={attr.key}
+                              onChange={(e) =>
+                                handleUpdateAttribute(
+                                  vIdx,
+                                  aIdx,
+                                  e.target.value,
+                                  attr.value,
+                                )
+                              }
+                              className="w-full border border-neutral-300 bg-white px-2.5 py-1.5 text-xs focus:border-brand-primary focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="w-full sm:flex-1 flex items-center gap-2">
+                            <span className="text-[11px] font-medium text-neutral-500 sm:hidden w-12 shrink-0">
+                              Value:
+                            </span>
+                            <input
+                              type="text"
+                              placeholder="Value (e.g. Medium, Red)"
+                              value={attr.value}
+                              onChange={(e) =>
+                                handleUpdateAttribute(
+                                  vIdx,
+                                  aIdx,
+                                  attr.key,
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full flex-1 border border-neutral-300 bg-white px-2.5 py-1.5 text-xs focus:border-brand-primary focus:outline-none"
+                            />
+                            {v.attributes.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttribute(vIdx, aIdx)}
+                                className="text-neutral-400 hover:text-brand-primary text-xs p-1.5 hover:bg-neutral-200/60 cursor-pointer shrink-0 transition"
+                                title="Delete attribute"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   {/* Pricing, SKU & Image for this variant */}
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 items-end">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
                     <div>
                       <label className="mb-1 block text-xs font-medium text-neutral-700">
                         Selling Price *

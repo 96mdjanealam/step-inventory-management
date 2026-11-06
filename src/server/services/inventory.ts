@@ -138,7 +138,7 @@ export async function addStock(input: AddStockInput, userId: string) {
         action: 'stock.inflow',
         entityType: 'inventory',
         entityId: updatedInventoryRow.id,
-        description: `Received ${input.quantity} ${variant.unit} of "${variant.productName}" (SKU: ${variant.sku ?? 'None'}) at ${location.name}`,
+        description: `Received ${input.quantity} ${variant.unit} of "${variant.productName}" (sku: ${variant.sku ?? 'None'}) at ${location.name}`,
         metadata: {
           variantId: variant.id,
           sku: variant.sku,

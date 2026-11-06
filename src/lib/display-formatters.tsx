@@ -13,16 +13,30 @@ export interface ProductData {
 }
 
 /**
+ * Standardized SKU formatter ensuring that whenever a SKU value is rendered or viewed
+ * anywhere in the app, it is formatted as "sku: <value>".
+ */
+export function formatSku(sku?: string | null): string | null {
+  if (!sku) return null
+  const trimmed = sku.trim()
+  if (!trimmed) return null
+  if (/^sku:\s*/i.test(trimmed)) {
+    return trimmed.replace(/^sku:\s*/i, 'sku: ')
+  }
+  return `sku: ${trimmed}`
+}
+
+/**
  * Formats variant display details according to standardized rules:
  * - First line: Show the variant name using its first two attributes and their values.
  *   If there is only one attribute, use that attribute and its value.
  *   If the variant has no attributes, use its SKU as the display name when available.
- * - Second line: Show the SKU, if available (prefixed with 'SKU: ').
+ * - Second line: Show the SKU, if available (prefixed with 'sku: ').
  * - SKU is secondary priority; never display empty placeholders or repeated SKUs.
  *
  * Example:
  * Line 1: Red / XL
- * Line 2: SKU: SKU-12345
+ * Line 2: sku: SKU-12345
  */
 export function formatVariantInfo(variant?: VariantData | null): {
   title: string
@@ -39,18 +53,18 @@ export function formatVariantInfo(variant?: VariantData | null): {
           .filter((v) => v.length > 0)
       : []
 
-  const sku = variant.sku && variant.sku.trim().length > 0 ? variant.sku.trim() : null
+  const formattedSku = formatSku(variant.sku)
 
   if (rawAttrs.length > 0) {
     // Show first two attributes and their values joined by " / "
     const title = rawAttrs.slice(0, 2).join(' / ')
-    const subtitle = sku ? `SKU: ${sku}` : null
+    const subtitle = formattedSku
     return { title, subtitle }
   }
 
   // If the variant has no attributes, use its SKU as display name when available
-  if (sku) {
-    return { title: sku, subtitle: null }
+  if (formattedSku) {
+    return { title: formattedSku, subtitle: null }
   }
 
   return { title: variant.name?.trim() || 'Default Variant', subtitle: null }
@@ -60,12 +74,12 @@ export function formatVariantInfo(variant?: VariantData | null): {
  * Formats product display details:
  * - First line: Product Name (Variant Count) - only include count if applicable (>0)
  * - Second line: Available attributes and other relevant information joined with ' / '
- * - Third line: SKU, if needed and available (prefixed with 'SKU: ')
+ * - Third line: SKU, if needed and available (prefixed with 'sku: ')
  *
  * Example:
  * Line 1: Product Name (3)
  * Line 2: Red / XL / Unisex / Piece
- * Line 3: SKU: SKU-12345
+ * Line 3: sku: SKU-12345
  */
 export function formatProductInfo(product?: ProductData | null): {
   line1: string
@@ -112,8 +126,7 @@ export function formatProductInfo(product?: ProductData | null): {
   const uniqueParts = Array.from(new Set(infoParts))
   const line2 = uniqueParts.length > 0 ? uniqueParts.join(' / ') : null
 
-  const sku = product.sku && product.sku.trim().length > 0 ? product.sku.trim() : null
-  const line3 = sku ? `SKU: ${sku}` : null
+  const line3 = formatSku(product.sku)
 
   return { line1, line2, line3 }
 }

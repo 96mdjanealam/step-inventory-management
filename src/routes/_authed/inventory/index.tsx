@@ -15,6 +15,7 @@ import { VariantSelect } from '../../../components/VariantSelect.tsx'
 import { useTableAutoRefresh } from '../../../lib/hooks/useTableAutoRefresh.ts'
 import {
   VariantDisplay,
+  formatSku,
 } from '../../../lib/display-formatters.tsx'
 import {
   addStockFn,
@@ -536,7 +537,7 @@ function InventoryPage() {
     const isDamagedLocation = loc?.type === 'damaged'
 
     return (
-      <main className="mx-auto max-w-7xl p-6 space-y-6">
+      <main className="mx-auto max-w-7xl p-4 sm:p-6 space-y-6">
         {/* Navigation Breadcrumb */}
         <div>
           <Link
@@ -893,7 +894,7 @@ function InventoryPage() {
           title="Adjust Stock"
           description={
             adjustingItem
-              ? `${adjustingItem.product.name} (SKU: ${adjustingItem.variant.sku}) at ${adjustingItem.location.name} · Current Stock: ${adjustingItem.quantity} ${adjustingItem.product.unit}`
+              ? `${adjustingItem.product.name} (${formatSku(adjustingItem.variant.sku)}) at ${adjustingItem.location.name} · Current Stock: ${adjustingItem.quantity} ${adjustingItem.product.unit}`
               : ''
           }
           size="md"
@@ -977,7 +978,7 @@ function InventoryPage() {
           title="Transfer Stock"
           description={
             transferringItem
-              ? `Item: ${transferringItem.product.name} (SKU: ${transferringItem.variant.sku}) · Available: ${transferringItem.quantity} ${transferringItem.product.unit}`
+              ? `Item: ${transferringItem.product.name} (${formatSku(transferringItem.variant.sku)}) · Available: ${transferringItem.quantity} ${transferringItem.product.unit}`
               : ''
           }
           size="md"
@@ -1069,7 +1070,7 @@ function InventoryPage() {
   const totalStores = loaderData.storesData?.total || 0
 
   return (
-    <main className="mx-auto max-w-7xl p-6 space-y-6">
+    <main className="mx-auto max-w-7xl p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

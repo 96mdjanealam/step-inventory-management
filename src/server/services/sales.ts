@@ -162,7 +162,7 @@ export async function createSale(input: CreateSaleInput, userId: string) {
 
       if (availableQtyFixed3 < neededQtyFixed3) {
         throw new Error(
-          `Insufficient stock for "${variant.productName} (${variant.sku})" at ${location.name}. Available: ${fromFixed3(availableQtyFixed3)}, Requested: ${fromFixed3(neededQtyFixed3)}`,
+          `Insufficient stock for "${variant.productName} (${variant.sku ? `sku: ${variant.sku}` : 'No SKU'})" at ${location.name}. Available: ${fromFixed3(availableQtyFixed3)}, Requested: ${fromFixed3(neededQtyFixed3)}`,
         )
       }
 
