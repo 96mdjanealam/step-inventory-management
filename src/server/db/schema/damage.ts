@@ -3,6 +3,7 @@ import {
   check,
   index,
   numeric,
+  pgSequence,
   pgTable,
   text,
   timestamp,
@@ -12,6 +13,10 @@ import { locations } from './locations.ts'
 import { products } from './products.ts'
 import { productVariants } from './product-variants.ts'
 import { profiles } from './profiles.ts'
+
+export const damageNumberSeq = pgSequence('damage_number_seq', {
+  startWith: 1001,
+})
 
 export const damageStatusEnum = ['quarantined', 'repaired', 'disposed'] as const
 export type DamageStatus = (typeof damageStatusEnum)[number]

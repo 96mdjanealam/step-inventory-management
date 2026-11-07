@@ -182,11 +182,25 @@ export async function createSale(input: CreateSaleInput, userId: string) {
       })
     }
 
-    // 6. Generate order number from sequence
-    const seqResult = (await tx.execute(
-      sql`SELECT nextval('order_number_seq') AS seq`,
-    )) as unknown as { rows: Array<{ seq: string | number }> }
-    const seq = seqResult.rows[0]?.seq
+    // 6. Generate order number from sequence (with self-healing fallback)
+    let seq: string | number | undefined
+    try {
+      const seqResult = (await tx.execute(
+        sql`SELECT nextval('order_number_seq') AS seq`,
+      )) as unknown as { rows: Array<{ seq: string | number }> }
+      seq = seqResult.rows[0]?.seq
+    } catch {
+      await tx.execute(sql`CREATE SEQUENCE IF NOT EXISTS order_number_seq START WITH 1001`)
+      await tx.execute(sql`
+        SELECT setval('order_number_seq', (
+          SELECT COALESCE(MAX(SUBSTRING(order_number FROM '[0-9]+')::bigint), 1000) FROM sales
+        ), true)
+      `)
+      const retryResult = (await tx.execute(
+        sql`SELECT nextval('order_number_seq') AS seq`,
+      )) as unknown as { rows: Array<{ seq: string | number }> }
+      seq = retryResult.rows[0]?.seq
+    }
     const orderNumber = `ORD-${seq}`
 
     // 7. Insert sale

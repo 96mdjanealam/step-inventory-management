@@ -141,11 +141,25 @@ export async function reportDamage(input: ReportDamageInput, userId: string) {
       })
     }
 
-    // 7. Generate sequence number
-    const seqResult = (await tx.execute(
-      sql`SELECT nextval('damage_number_seq') AS seq`,
-    )) as unknown as { rows: Array<{ seq: string | number }> }
-    const seq = seqResult.rows[0]?.seq
+    // 7. Generate sequence number (with self-healing fallback)
+    let seq: string | number | undefined
+    try {
+      const seqResult = (await tx.execute(
+        sql`SELECT nextval('damage_number_seq') AS seq`,
+      )) as unknown as { rows: Array<{ seq: string | number }> }
+      seq = seqResult.rows[0]?.seq
+    } catch {
+      await tx.execute(sql`CREATE SEQUENCE IF NOT EXISTS damage_number_seq START WITH 1001`)
+      await tx.execute(sql`
+        SELECT setval('damage_number_seq', (
+          SELECT COALESCE(MAX(SUBSTRING(damage_number FROM '[0-9]+')::bigint), 1000) FROM damage_reports
+        ), true)
+      `)
+      const retryResult = (await tx.execute(
+        sql`SELECT nextval('damage_number_seq') AS seq`,
+      )) as unknown as { rows: Array<{ seq: string | number }> }
+      seq = retryResult.rows[0]?.seq
+    }
     const damageNumber = `DAM-${seq}`
 
     // 8. Insert damage report

@@ -3,6 +3,7 @@ import {
   check,
   index,
   numeric,
+  pgSequence,
   pgTable,
   text,
   timestamp,
@@ -12,6 +13,10 @@ import { locations } from './locations.ts'
 import { products } from './products.ts'
 import { productVariants } from './product-variants.ts'
 import { profiles } from './profiles.ts'
+
+export const orderNumberSeq = pgSequence('order_number_seq', {
+  startWith: 1001,
+})
 
 export const saleStatusEnum = ['completed', 'cancelled'] as const
 export type SaleStatus = (typeof saleStatusEnum)[number]

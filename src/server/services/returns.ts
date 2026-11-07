@@ -152,11 +152,25 @@ export async function createReturn(input: CreateReturnInput, userId: string) {
       })
     }
 
-    // 5. Generate return number from sequence
-    const seqResult = (await tx.execute(
-      sql`SELECT nextval('return_number_seq') AS seq`,
-    )) as unknown as { rows: Array<{ seq: string | number }> }
-    const seq = seqResult.rows[0]?.seq
+    // 5. Generate return number from sequence (with self-healing fallback)
+    let seq: string | number | undefined
+    try {
+      const seqResult = (await tx.execute(
+        sql`SELECT nextval('return_number_seq') AS seq`,
+      )) as unknown as { rows: Array<{ seq: string | number }> }
+      seq = seqResult.rows[0]?.seq
+    } catch {
+      await tx.execute(sql`CREATE SEQUENCE IF NOT EXISTS return_number_seq START WITH 1001`)
+      await tx.execute(sql`
+        SELECT setval('return_number_seq', (
+          SELECT COALESCE(MAX(SUBSTRING(return_number FROM '[0-9]+')::bigint), 1000) FROM returns
+        ), true)
+      `)
+      const retryResult = (await tx.execute(
+        sql`SELECT nextval('return_number_seq') AS seq`,
+      )) as unknown as { rows: Array<{ seq: string | number }> }
+      seq = retryResult.rows[0]?.seq
+    }
     const returnNumber = `RET-${seq}`
 
     // 6. Insert return record
