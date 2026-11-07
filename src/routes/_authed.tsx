@@ -4,6 +4,7 @@ import { useServerFn } from '@tanstack/react-start'
 import {
   AlertTriangle,
   ArrowLeftRight,
+  BookOpen,
   Boxes,
   ClipboardList,
   LayoutDashboard,
@@ -120,6 +121,11 @@ const navItems: NavItem[] = [
     to: '/audit',
     label: 'Audit & Ledger',
     icon: ClipboardList,
+  },
+  {
+    to: '/guide',
+    label: 'Operations Guide',
+    icon: BookOpen,
   },
   {
     to: '/users',

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { Image as ImageIcon, Plus } from 'lucide-react'
+import { ArrowLeft, Image as ImageIcon, Plus } from 'lucide-react'
 import { Button, LinkButton } from '../../../components/Button.tsx'
 import {
   ImageUploader,
@@ -354,8 +354,9 @@ function ProductDetailPage() {
             to="/products"
             variant="secondary"
             size="sm"
+            leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
           >
-            ← Back to products
+            Back to products
           </LinkButton>
           {isAdmin ? (
             <Button
