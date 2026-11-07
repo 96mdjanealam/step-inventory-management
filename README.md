@@ -1,209 +1,115 @@
-Welcome to your new TanStack Start app!
+# OXTON Inventory Management
 
-# Getting Started
+An enterprise-grade, multi-location retail inventory and point-of-sale management system. Built with an immutable double-entry stock ledger, real-time stock derivation, and role-based access control.
 
-To run this application:
+---
+
+## Key Features
+
+- **Multi-Location Inventory**: Manage stock across the Central Main Warehouse, retail stores, and a dedicated Damaged Stock quarantine facility.
+- **Double-Entry Ledger**: Stock quantities are derived from an immutable `stock_movements` table (`INITIAL`, `TRANSFER_IN`, `TRANSFER_OUT`, `SALE`, `RETURN`, `DAMAGE_WRITE_OFF`, `AUDIT_ADJUSTMENT`), preventing floating counters or phantom balances.
+- **Product & Variant Catalog**: Supports single products and multi-attribute variant matrices (Sizes, Colors, Styles) with formatted SKUs (`sku: <value>`), cost/selling prices, and image uploads.
+- **Stock Transfers**: Inter-facility transfer workflows with atomic updates (deducts source and credits destination in a single transaction).
+- **Point of Sale (POS)**: Fast retail register checkout with stock validation, payment selection, and sequential order generation (`ORD-100X`).
+- **Customer Returns**: Inspect merchandise condition and route resaleable items back to the store floor or quarantine defective units (`RET-100X`).
+- **Damaged Stock**: Incident logging and loss write-offs (`DAM-100X`).
+- **Audit & Cycle Counts**: Physical count verification with authorized supervisor reconciliation notes.
+- **Operations Guide**: In-app standard operating procedures (SOP) and workflow documentation accessible directly from the sidebar.
+
+---
+
+## Tech Stack & Tools
+
+| Layer                  | Technology                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| **Framework**          | [TanStack Start](https://tanstack.com/start) (Fullstack React 19 + Nitro SSR) |
+| **Routing**            | [TanStack Router](https://tanstack.com/router) (Type-safe file-based routing) |
+| **Styling**            | [Tailwind CSS v4](https://tailwindcss.com/) (Zero-radius design system)       |
+| **Database**           | PostgreSQL ([Supabase](https://supabase.com/))                                |
+| **ORM & Migrations**   | [Drizzle ORM](https://orm.drizzle.team/) & Drizzle Kit                        |
+| **Cloud Storage**      | Supabase Storage (`product-images` bucket)                                    |
+| **Icons & Charts**     | [Lucide React](https://lucide.dev/), [Recharts](https://recharts.org/)        |
+| **Validation**         | [Zod](https://zod.dev/)                                                       |
+| **Language & Tooling** | TypeScript, Vite 8, ESLint, Prettier                                          |
+
+---
+
+## Local Development Setup
+
+### 1. Prerequisites
+
+- **Node.js** v20.x or higher
+- **npm** v10.x or higher
+- A PostgreSQL database instance (or Supabase project)
+
+### 2. Clone & Install
 
 ```bash
+git clone <repository-url>
+cd inventory-management
 npm install
+```
+
+### 3. Environment Variables
+
+Create a `.env.local` file in the project root based on `.env.example`:
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in your database and Supabase credentials:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+SUPABASE_SECRET_KEY=your_supabase_service_role_secret_key
+
+DATABASE_URL=postgresql://postgres.your-project:password@aws-0-pooler.supabase.com:6543/postgres
+DIRECT_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
+```
+
+### 4. Database Setup & Seeding
+
+Push the schema to your PostgreSQL database and seed sample stores, products, inventory, and orders:
+
+```bash
+# Push schema tables and sequences to PostgreSQL
+npm run db:push
+
+# Seed locations, sample products/variants, initial stock, and sales
+npm run db:seed
+```
+
+### 5. Start Development Server
+
+```bash
 npm run dev
 ```
 
-# Building For Production
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-To build this application for production:
+---
 
-```bash
-npm run build
-```
+## Default Login Credentials (from Seed)
 
-## Styling
+| Role              | Username   | Password   | Access Level                                                        |
+| ----------------- | ---------- | ---------- | ------------------------------------------------------------------- |
+| **Administrator** | `admin`    | `password` | Full system access, staff accounts, audit adjustments, cost prices  |
+| **Employee**      | `employee` | `password` | POS checkout, inventory lookups, transfers, returns, damage logging |
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
+---
 
-### Removing Tailwind CSS
+## Available Scripts
 
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
-
-## Linting & Formatting
-
-
-This project uses [eslint](https://eslint.org/) and [prettier](https://prettier.io/) for linting and formatting. Eslint is configured using [tanstack/eslint-config](https://tanstack.com/config/latest/docs/eslint). The following scripts are available:
-
-```bash
-npm run lint
-npm run format
-npm run check
-```
-
-
-## Deploy to Vercel
-
-1. Push this repo to GitHub, GitLab, or Bitbucket
-2. In Vercel, choose **Add New > Project** and import the repo
-3. Keep the detected TanStack Start framework settings
-4. Add production values from `.env.example` under **Settings > Environment Variables**
-5. Deploy
-
-Vercel runs the build script and deploys Nitro's output as Vercel Functions and
-static assets. The included `vercel.json` makes framework detection explicit.
-
-Variables prefixed with `VITE_` are included in the browser bundle. Keep secrets
-unprefixed so they remain server-only.
-
-
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+| Command                   | Purpose                                                     |
+| ------------------------- | ----------------------------------------------------------- |
+| `npm run dev`             | Starts the Vite development server on port 3000             |
+| `npm run build`           | Builds the client and server bundles for production         |
+| `npm run preview`         | Previews the production build locally                       |
+| `npm run generate-routes` | Regenerates TanStack Router route tree (`routeTree.gen.ts`) |
+| `npm run db:push`         | Pushes Drizzle schema changes directly to the database      |
+| `npm run db:seed`         | Populates sample stores, products, stock, and orders        |
+| `npm run db:studio`       | Opens Drizzle Studio GUI for inspecting database tables     |
+| `npm run format`          | Runs Prettier and auto-fixes ESLint issues                  |
+| `npm run check`           | Checks formatting and code style                            |
