@@ -60,15 +60,17 @@ function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 p-6">
       <div className="space-y-2">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 bg-brand-primary text-white flex items-center justify-center font-black text-xs select-none">
-            INV
-          </div>
-          <span className="font-bold text-lg text-brand-charcoal tracking-tight">InventoryOS</span>
+        <div className="flex items-center gap-2.5 mb-2">
+          <img
+            src="/logo.png"
+            alt="OXTON Logo"
+            className="w-8 h-8 object-contain select-none"
+          />
+          <span className="font-extrabold text-xl text-brand-charcoal tracking-tight">OXTON</span>
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-brand-charcoal">Sign in</h1>
         <p className="text-xs text-neutral-500">
-          Enter your credentials to access the inventory system.
+          Enter your credentials to access the OXTON inventory system.
         </p>
       </div>
 

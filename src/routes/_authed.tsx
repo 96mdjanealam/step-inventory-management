@@ -183,12 +183,14 @@ function AuthedLayout() {
         <div className="h-16 flex items-center justify-between px-5 border-b border-neutral-200 flex-shrink-0 bg-white">
           <Link
             to="/dashboard"
-            className="flex items-center gap-2.5 font-bold text-base text-brand-charcoal tracking-tight"
+            className="flex items-center gap-2.5 font-extrabold text-base text-brand-charcoal tracking-tight"
           >
-            <div className="w-7 h-7 bg-brand-primary text-white flex items-center justify-center font-black text-xs select-none">
-              INV
-            </div>
-            <span>InventoryOS</span>
+            <img
+              src="/logo.png"
+              alt="OXTON Logo"
+              className="w-7 h-7 object-contain select-none"
+            />
+            <span className="tracking-tight">OXTON</span>
           </Link>
           <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary bg-brand-bg border border-brand-coral/40 px-1.5 py-0.5 select-none">
             ERP
@@ -251,12 +253,14 @@ function AuthedLayout() {
 
           <Link
             to="/dashboard"
-            className="flex items-center gap-2 font-bold text-sm text-brand-charcoal tracking-tight"
+            className="flex items-center gap-2 font-extrabold text-sm text-brand-charcoal tracking-tight"
           >
-            <div className="w-6 h-6 bg-brand-primary text-white flex items-center justify-center font-black text-xs select-none">
-              INV
-            </div>
-            <span>InventoryOS</span>
+            <img
+              src="/logo.png"
+              alt="OXTON Logo"
+              className="w-6 h-6 object-contain select-none"
+            />
+            <span className="tracking-tight">OXTON</span>
           </Link>
         </div>
 
@@ -287,12 +291,14 @@ function AuthedLayout() {
               <Link
                 to="/dashboard"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 font-bold text-sm text-brand-charcoal"
+                className="flex items-center gap-2 font-extrabold text-sm text-brand-charcoal"
               >
-                <div className="w-6 h-6 bg-brand-primary text-white flex items-center justify-center font-black text-xs select-none">
-                  INV
-                </div>
-                <span>InventoryOS</span>
+                <img
+                  src="/logo.png"
+                  alt="OXTON Logo"
+                  className="w-6 h-6 object-contain select-none"
+                />
+                <span className="tracking-tight">OXTON</span>
               </Link>
               <button
                 type="button"

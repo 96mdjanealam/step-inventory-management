@@ -175,11 +175,11 @@ export function ImageUploader({
         </form>
       ) : null}
 
-      {/* Single image compact mode */}
+      {/* Single image preview mode */}
       {!multiple && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
           {previewUrls[0] ? (
-            <div className="relative h-16 w-16 overflow-hidden border border-neutral-200 bg-neutral-50 shadow-2xs">
+            <div className="relative h-44 w-44 sm:h-52 sm:w-52 overflow-hidden border border-neutral-200 bg-neutral-50 shadow-xs">
               <img
                 src={previewUrls[0].url}
                 alt="Variant preview"
@@ -190,38 +190,47 @@ export function ImageUploader({
                 }}
               />
               {previewUrls[0].isFile && (
-                <span className="absolute bottom-0 inset-x-0 bg-brand-primary/90 text-[8px] font-bold text-white text-center py-0.5 uppercase tracking-tighter">
+                <span className="absolute bottom-0 inset-x-0 bg-brand-primary/95 text-[10px] font-bold text-white text-center py-1 uppercase tracking-wider">
                   New
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => handleRemove(0)}
-                className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center bg-rose-600 text-[10px] text-white hover:bg-rose-700 cursor-pointer shadow-xs"
+                className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center bg-rose-600 text-white hover:bg-rose-700 cursor-pointer shadow-sm transition"
                 title="Remove image"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-16 w-16 flex-col items-center justify-center border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-brand-primary hover:text-brand-primary hover:bg-brand-bg/30 transition cursor-pointer"
+              className="flex h-44 w-44 sm:h-52 sm:w-52 flex-col items-center justify-center border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-brand-primary hover:text-brand-primary hover:bg-brand-bg/30 transition cursor-pointer"
             >
-              <Plus className="h-5 w-5" />
-              <span className="text-[9px] mt-0.5">Image</span>
+              <Plus className="h-8 w-8 text-neutral-400 group-hover:text-brand-primary" />
+              <span className="text-xs mt-2 font-medium">Add Photo</span>
             </button>
           )}
 
           {previewUrls[0] && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="text-xs text-neutral-600 underline hover:text-brand-primary cursor-pointer"
-            >
-              Change
-            </button>
+            <div className="flex sm:flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center justify-center border border-neutral-300 bg-white px-3.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-brand-primary hover:text-brand-primary cursor-pointer transition shadow-2xs"
+              >
+                Change photo
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemove(0)}
+                className="inline-flex items-center justify-center border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 cursor-pointer transition"
+              >
+                Remove
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -236,10 +245,10 @@ export function ImageUploader({
               handleFiles(e.dataTransfer.files)
             }}
             onClick={() => fileInputRef.current?.click()}
-            className="flex cursor-pointer flex-col items-center justify-center border-2 border-dashed border-neutral-300 p-4 transition-colors hover:border-brand-primary hover:bg-brand-bg/20"
+            className="flex cursor-pointer flex-col items-center justify-center border-2 border-dashed border-neutral-300 p-6 transition-colors hover:border-brand-primary hover:bg-brand-bg/20"
           >
             <div className="flex flex-col items-center text-center">
-              <ImageIcon className="mb-1.5 h-7 w-7 text-neutral-400" />
+              <ImageIcon className="mb-2 h-8 w-8 text-neutral-400" />
               <p className="text-xs font-medium text-brand-charcoal">
                 Click or drag images here
               </p>
@@ -250,11 +259,11 @@ export function ImageUploader({
           </div>
 
           {previewUrls.length > 0 && (
-            <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">
+            <div className="flex flex-wrap gap-3.5">
               {previewUrls.map((p, idx) => (
                 <div
                   key={`${p.url}-${idx}`}
-                  className="group relative aspect-square overflow-hidden border border-neutral-200 bg-neutral-50 shadow-2xs"
+                  className="group relative h-20 w-20 sm:h-24 sm:w-24 overflow-hidden border border-neutral-200 bg-neutral-50 shadow-xs"
                 >
                   <img
                     src={p.url}
@@ -266,12 +275,12 @@ export function ImageUploader({
                     }}
                   />
                   {idx === 0 && (
-                    <span className="absolute bottom-1 left-1 bg-brand-charcoal/85 px-1.5 py-0.5 text-[9px] font-semibold text-white uppercase tracking-wider">
+                    <span className="absolute bottom-2 left-2 bg-brand-charcoal/90 px-2 py-0.5 text-[10px] font-semibold text-white uppercase tracking-wider">
                       Cover
                     </span>
                   )}
                   {p.isFile && (
-                    <span className="absolute top-1 left-1 bg-brand-primary px-1.5 py-0.5 text-[8px] font-bold text-white uppercase tracking-tighter">
+                    <span className="absolute top-2 left-2 bg-brand-primary px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider">
                       New
                     </span>
                   )}
@@ -281,10 +290,10 @@ export function ImageUploader({
                       e.stopPropagation()
                       handleRemove(idx)
                     }}
-                    className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center bg-rose-600 text-xs text-white opacity-90 transition-opacity hover:opacity-100 cursor-pointer shadow-xs"
+                    className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center bg-rose-600 text-xs text-white opacity-90 transition-opacity hover:opacity-100 hover:bg-rose-700 cursor-pointer shadow-xs"
                     title="Remove image"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}

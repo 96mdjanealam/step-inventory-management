@@ -22,10 +22,19 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Inventory Management System',
+        title: 'OXTON | Inventory Management',
       },
     ],
     links: [
+      {
+        rel: 'icon',
+        type: 'image/png',
+        href: '/favicon.png',
+      },
+      {
+        rel: 'apple-touch-icon',
+        href: '/logo.png',
+      },
       {
         rel: 'preconnect',
         href: 'https://fonts.googleapis.com',

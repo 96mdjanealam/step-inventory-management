@@ -2,8 +2,6 @@ import { z } from 'zod'
 import { createServerFn } from '@tanstack/react-start'
 import { requireUser } from '../middleware/auth.ts'
 import { createSupabaseAdminClient } from '../auth/supabase.ts'
-import fs from 'node:fs/promises'
-import path from 'node:path'
 
 const uploadImageSchema = z.object({
   filename: z.string().min(1),
@@ -37,49 +35,29 @@ export const uploadImageFn = createServerFn({ method: 'POST' })
     const ext = ALLOWED_EXTENSIONS[data.contentType] || 'jpg'
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`
 
-    // 2. Also ensure local public/uploads directory exists for fallback / offline hosting
-    let localUrl: string | null = null
-    try {
-      const publicUploadsDir = path.resolve(process.cwd(), 'public', 'uploads')
-      await fs.mkdir(publicUploadsDir, { recursive: true })
-      const filePath = path.join(publicUploadsDir, uniqueName)
-      await fs.writeFile(filePath, buffer)
-      localUrl = `/uploads/${uniqueName}`
-    } catch (fsErr) {
-      console.warn('Could not save to local public/uploads directory:', fsErr)
+    // 2. Upload directly to Supabase Storage bucket 'product-images'
+    const supabase = createSupabaseAdminClient()
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(uniqueName, buffer, {
+        contentType: data.contentType,
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error('Supabase storage upload error:', uploadError.message)
+      throw new Error(`Failed to upload image: ${uploadError.message}`)
     }
 
-    // 3. Upload to Supabase Storage bucket 'product-images'
-    try {
-      const supabase = createSupabaseAdminClient()
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(uniqueName, buffer, {
-          contentType: data.contentType,
-          upsert: true,
-        })
+    const { data: pubData } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(uniqueName)
 
-      if (!uploadError) {
-        const { data: pubData } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(uniqueName)
-
-        if (pubData?.publicUrl) {
-          return { url: pubData.publicUrl }
-        }
-      } else {
-        console.warn('Supabase storage upload failed:', uploadError.message)
-      }
-    } catch (sbErr) {
-      console.warn('Supabase client error:', sbErr)
+    if (!pubData?.publicUrl) {
+      throw new Error('Failed to retrieve public URL from Supabase storage')
     }
 
-    // If Supabase wasn't available or failed, return local URL if written
-    if (localUrl) {
-      return { url: localUrl }
-    }
-
-    throw new Error('Failed to save image')
+    return { url: pubData.publicUrl }
   })
 
 const deleteImageSchema = z.object({
@@ -90,7 +68,6 @@ export const deleteImageFn = createServerFn({ method: 'POST' })
   .middleware([requireUser])
   .validator(deleteImageSchema)
   .handler(async ({ data }) => {
-    // 1. If it's a Supabase storage URL
     try {
       const match = data.url.match(/\/product-images\/(.+)$/)
       if (match) {
@@ -100,17 +77,6 @@ export const deleteImageFn = createServerFn({ method: 'POST' })
       }
     } catch (sbErr) {
       console.warn('Supabase image removal warning:', sbErr)
-    }
-
-    // 2. If it's a local filesystem URL
-    try {
-      if (data.url.startsWith('/uploads/')) {
-        const fileName = path.basename(data.url)
-        const localPath = path.resolve(process.cwd(), 'public', 'uploads', fileName)
-        await fs.unlink(localPath)
-      }
-    } catch {
-      // file might not exist or read-only filesystem, safe to ignore
     }
 
     return { success: true }
