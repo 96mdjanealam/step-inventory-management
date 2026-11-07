@@ -114,9 +114,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `npm run format`          | Runs Prettier and auto-fixes ESLint issues                  |
 | `npm run check`           | Checks formatting and code style                            |
 
----
-
-Made with love by Md Jane Alam
 
 ---
 
