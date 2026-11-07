@@ -2,6 +2,8 @@
 
 An enterprise-grade, multi-location retail inventory and point-of-sale management system. Built with an immutable double-entry stock ledger, real-time stock derivation, and role-based access control.
 
+**Live Application**: [https://step-inventory-management.vercel.app/](https://step-inventory-management.vercel.app/)
+
 ---
 
 ## Key Features
@@ -114,8 +116,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `npm run format`          | Runs Prettier and auto-fixes ESLint issues                  |
 | `npm run check`           | Checks formatting and code style                            |
 
-
 ---
 
 Made with love by Md Jane Alam
-
