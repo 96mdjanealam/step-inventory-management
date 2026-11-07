@@ -91,12 +91,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Default Login Credentials (from Seed)
+## User Roles
 
-| Role              | Username   | Password   | Access Level                                                        |
-| ----------------- | ---------- | ---------- | ------------------------------------------------------------------- |
-| **Administrator** | `admin`    | `password` | Full system access, staff accounts, audit adjustments, cost prices  |
-| **Employee**      | `employee` | `password` | POS checkout, inventory lookups, transfers, returns, damage logging |
+| Role              | Scope             | Key Permissions & Capabilities                                                      |
+| ----------------- | ----------------- | ----------------------------------------------------------------------------------- |
+| **Administrator** | System Governance | Full system access, staff accounts, catalog editing, cost prices, audit adjustments |
+| **Employee**      | Store Floor & POS | POS checkout, inventory lookups, stock transfers, customer returns, damage logging  |
 
 ---
 
