@@ -123,15 +123,15 @@ const navItems: NavItem[] = [
     icon: ClipboardList,
   },
   {
+    to: '/users',
+    label: 'Accounts',
+    icon: Users,
+    adminOnly: true,
+  },
+  {
     to: '/guide',
     label: 'Operations Guide',
     icon: BookOpen,
-  },
-  {
-    to: '/users',
-    label: 'Staff Accounts',
-    icon: Users,
-    adminOnly: true,
   },
 ]
 
@@ -145,13 +145,16 @@ function AuthedLayout() {
     await logout()
   }
 
-  const allowedNavItems = navItems.filter(
-    (item) => !item.adminOnly || user.role === 'admin',
-  )
+  const allowedNavItems = navItems.filter((item) => {
+    if (item.adminOnly) {
+      return user.role === 'admin'
+    }
+    return true
+  })
 
   const renderNavLinks = (onItemClick?: () => void) => (
     <nav className="flex flex-col gap-1 px-3 py-4 flex-1 overflow-y-auto">
-      <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400 select-none">
+      <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-white/40 select-none">
         Main Navigation
       </div>
       {allowedNavItems.map((item) => {
@@ -165,8 +168,7 @@ function AuthedLayout() {
               className: 'bg-brand-primary text-white font-medium shadow-2xs',
             }}
             inactiveProps={{
-              className:
-                'text-neutral-600 hover:text-brand-charcoal hover:bg-brand-bg/50',
+              className: 'text-neutral-300 hover:text-white hover:bg-white/10',
             }}
             onClick={onItemClick}
             className="flex items-center gap-3 px-3 py-2 text-sm font-medium transition cursor-pointer select-none group"
@@ -184,12 +186,12 @@ function AuthedLayout() {
       {/* =========================================================================
           DESKTOP SIDEBAR ASIDE
           ========================================================================= */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-neutral-200 z-30">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-brand-charcoal border-r border-neutral-700/60 z-30 text-white">
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-neutral-200 flex-shrink-0 bg-white">
+        <div className="h-16 flex items-center justify-between px-5 border-b border-white/10 flex-shrink-0 bg-brand-charcoal">
           <Link
             to="/dashboard"
-            className="flex items-center gap-2.5 font-extrabold text-base text-brand-charcoal tracking-tight"
+            className="flex items-center gap-2.5 font-extrabold text-base text-white tracking-tight"
           >
             <img
               src="/logo.png"
@@ -198,7 +200,7 @@ function AuthedLayout() {
             />
             <span className="tracking-tight">OXTON</span>
           </Link>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary bg-brand-bg border border-brand-coral/40 px-1.5 py-0.5 select-none">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-coral bg-white/10 border border-white/15 px-1.5 py-0.5 select-none">
             ERP
           </span>
         </div>
@@ -207,21 +209,21 @@ function AuthedLayout() {
         {renderNavLinks()}
 
         {/* User Card & Logout Footer */}
-        <div className="p-4 border-t border-neutral-200 bg-neutral-50/70 flex-shrink-0 space-y-3">
+        <div className="p-4 border-t border-white/10 bg-black/25 flex-shrink-0 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold text-brand-charcoal truncate">
+              <div className="text-xs font-semibold text-white truncate">
                 {user.username || user.email}
               </div>
-              <div className="text-[11px] text-neutral-500 truncate">
+              <div className="text-[11px] text-neutral-400 truncate">
                 {user.email}
               </div>
             </div>
             <span
               className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                 user.role === 'admin'
-                  ? 'bg-brand-charcoal text-white'
-                  : 'bg-neutral-200 text-neutral-700'
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-white/15 text-neutral-200 border border-white/20'
               }`}
             >
               {user.role}
@@ -231,7 +233,7 @@ function AuthedLayout() {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-neutral-700 hover:text-brand-primary bg-white hover:bg-brand-bg/50 border border-neutral-200 px-3 py-2 transition cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-neutral-300 hover:text-white bg-white/5 hover:bg-white/15 border border-white/10 px-3 py-2 transition cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign out</span>
@@ -292,12 +294,12 @@ function AuthedLayout() {
           />
 
           {/* Drawer container */}
-          <aside className="relative flex w-72 flex-col bg-white shadow-2xl z-50 animate-in slide-in-from-left duration-200">
-            <div className="h-14 flex items-center justify-between px-4 border-b border-neutral-200 flex-shrink-0">
+          <aside className="relative flex w-72 flex-col bg-brand-charcoal text-white shadow-2xl z-50 animate-in slide-in-from-left duration-200 border-r border-white/10">
+            <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 flex-shrink-0 bg-brand-charcoal">
               <Link
                 to="/dashboard"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 font-extrabold text-sm text-brand-charcoal"
+                className="flex items-center gap-2 font-extrabold text-sm text-white"
               >
                 <img
                   src="/logo.png"
@@ -309,7 +311,7 @@ function AuthedLayout() {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-1.5 text-neutral-400 hover:text-neutral-700 transition"
+                className="p-1.5 text-neutral-400 hover:text-white transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -317,13 +319,13 @@ function AuthedLayout() {
 
             {renderNavLinks(() => setMobileMenuOpen(false))}
 
-            <div className="p-4 border-t border-neutral-200 bg-neutral-50/70 flex-shrink-0 space-y-3">
+            <div className="p-4 border-t border-white/10 bg-black/25 flex-shrink-0 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-neutral-900 truncate">
+                  <div className="text-xs font-semibold text-white truncate">
                     {user.username || user.email}
                   </div>
-                  <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-bold">
+                  <div className="text-[10px] text-brand-coral uppercase tracking-wider font-bold">
                     {user.role}
                   </div>
                 </div>
@@ -332,7 +334,7 @@ function AuthedLayout() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 text-xs font-medium text-neutral-700 hover:text-rose-700 bg-white hover:bg-rose-50 border border-neutral-200 px-3 py-2 transition"
+                className="w-full flex items-center justify-center gap-2 text-xs font-medium text-neutral-300 hover:text-white bg-white/5 hover:bg-white/15 border border-white/10 px-3 py-2 transition"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Sign out</span>
