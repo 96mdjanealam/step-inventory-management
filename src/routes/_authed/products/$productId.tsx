@@ -3,6 +3,8 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, Image as ImageIcon, Plus } from 'lucide-react'
 import { Button, LinkButton } from '../../../components/Button.tsx'
+import { ConfirmModal } from '../../../components/ConfirmModal.tsx'
+import { Alert } from '../../../components/Alert.tsx'
 import {
   ImageUploader,
   type UploadableImage,
@@ -96,27 +98,96 @@ function ProductDetailPage() {
   const [variantAttributes, setVariantAttributes] = useState<AttributeItem[]>([])
   const [variantImage, setVariantImage] = useState<UploadableImage | undefined>(undefined)
 
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
+  const [deactivateVariantTarget, setDeactivateVariantTarget] = useState<
+    (typeof product.variants)[number] | null
+  >(null)
+
   const isAdmin = user.role === 'admin'
 
-  async function handleArchiveToggle() {
+  async function confirmArchiveProduct() {
     setActionError(null)
     setActionPending(true)
     try {
-      if (product.isActive) {
-        if (!window.confirm(`Archive "${product.name}"?`)) {
-          setActionPending(false)
-          return
-        }
-        await archiveProduct({ data: { id: product.id } })
-      } else {
-        await restoreProduct({ data: { id: product.id } })
-      }
+      await archiveProduct({ data: { id: product.id } })
+      await router.invalidate()
+      setShowArchiveConfirm(false)
+    } catch (err) {
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to archive product',
+      )
+    } finally {
+      setActionPending(false)
+    }
+  }
+
+  async function handleArchiveToggle() {
+    if (product.isActive) {
+      setShowArchiveConfirm(true)
+      return
+    }
+
+    setActionError(null)
+    setActionPending(true)
+    try {
+      await restoreProduct({ data: { id: product.id } })
       await router.invalidate()
     } catch (err) {
       setActionError(
         err instanceof Error
           ? err.message
-          : 'Failed to update product archive status',
+          : 'Failed to restore product',
+      )
+    } finally {
+      setActionPending(false)
+    }
+  }
+
+  async function confirmDeactivateVariant() {
+    if (!deactivateVariantTarget) return
+    setActionError(null)
+    setActionPending(true)
+    try {
+      await toggleVariantActive({
+        data: {
+          id: deactivateVariantTarget.id,
+          isActive: false,
+        },
+      })
+      await router.invalidate()
+      setDeactivateVariantTarget(null)
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Failed to deactivate variant',
+      )
+    } finally {
+      setActionPending(false)
+    }
+  }
+
+  async function handleToggleVariant(
+    v: (typeof product.variants)[number],
+  ) {
+    if (v.isActive) {
+      setDeactivateVariantTarget(v)
+      return
+    }
+
+    setActionError(null)
+    setActionPending(true)
+    try {
+      await toggleVariantActive({
+        data: {
+          id: v.id,
+          isActive: true,
+        },
+      })
+      await router.invalidate()
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Failed to activate variant',
       )
     } finally {
       setActionPending(false)
@@ -301,28 +372,7 @@ function ProductDetailPage() {
     }
   }
 
-  async function handleToggleVariant(
-    v: (typeof product.variants)[number],
-  ) {
-    const nextState = !v.isActive
-    if (!nextState && !window.confirm(`Deactivate variant "${formatSku(v.sku) || 'Default'}"?`)) {
-      return
-    }
-    setActionError(null)
-    try {
-      await toggleVariantActive({
-        data: {
-          id: v.id,
-          isActive: nextState,
-        },
-      })
-      await router.invalidate()
-    } catch (err) {
-      setActionError(
-        err instanceof Error ? err.message : 'Failed to update variant status',
-      )
-    }
-  }
+
 
   const images = product.images ?? []
   const currentCover = images[selectedGalleryIndex] ?? images[0]
@@ -385,71 +435,68 @@ function ProductDetailPage() {
       </div>
 
       {actionError ? (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <Alert
+          variant="error"
+          onClose={() => setActionError(null)}
+          className="mb-4"
+        >
           {actionError}
-        </div>
+        </Alert>
       ) : null}
 
       {/* Main Overview Card: Left = Product Images, Right = Product Details */}
-      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-base font-semibold text-gray-900">
+      <div className="mb-8 border border-neutral-200 bg-white p-6 shadow-xs">
+        <h2 className="mb-4 text-base font-semibold text-brand-charcoal">
           Product Information & Media
         </h2>
 
         {isEditing ? (
           <form onSubmit={handleUpdate} className="flex flex-col gap-6">
             {formError ? (
-              <p className="rounded bg-red-50 p-2 text-sm text-red-600">
+              <Alert variant="error" className="p-2.5">
                 {formError}
-              </p>
+              </Alert>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              {/* Image Uploader */}
-              <div className="md:col-span-1">
-                <ImageUploader
-                  multiple={true}
-                  value={editImages}
-                  onChange={setEditImages}
-                  label="Product Images"
-                  helperText="Upload or remove photos. First image is used as the cover."
-                />
-              </div>
-
-              {/* Editable Fields */}
-              <div className="flex flex-col gap-4 md:col-span-2">
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  Name *
+            <div className="flex flex-col gap-6">
+              {/* Product Information Fields */}
+              <div className="flex flex-col gap-4">
+                <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                  <span>
+                    Name <span className="text-red-500">*</span>
+                  </span>
                   <input
                     name="name"
                     defaultValue={product.name}
                     required
-                    className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
+                    className="w-full h-10 border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-charcoal focus:border-brand-primary focus:outline-none"
                   />
                   {fieldErrors.name ? (
-                    <span className="text-xs text-red-600">
+                    <span className="text-xs text-rose-600">
                       {fieldErrors.name}
                     </span>
                   ) : null}
                 </label>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                    Category *
+                  <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                    <span>
+                      Category <span className="text-red-500">*</span>
+                    </span>
                     <input
                       name="category"
                       defaultValue={product.category}
                       required
-                      className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
+                      className="w-full h-10 border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-charcoal focus:border-brand-primary focus:outline-none"
                     />
                     {fieldErrors.category ? (
-                      <span className="text-xs text-red-600">
+                      <span className="text-xs text-rose-600">
                         {fieldErrors.category}
                       </span>
                     ) : null}
                   </label>
 
-                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                     Target consumer
                     <Select
                       name="targetConsumer"
@@ -463,35 +510,52 @@ function ProductDetailPage() {
                   </label>
                 </div>
 
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                   Description
                   <textarea
                     name="description"
                     defaultValue={product.description ?? ''}
-                    rows={4}
-                    className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
+                    rows={3}
+                    className="border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-charcoal focus:border-brand-primary focus:outline-none"
                   />
                 </label>
+              </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditImages(product.images ?? [])
-                      setIsEditing(false)
-                    }}
-                    className="rounded border border-gray-300 px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={pending}
-                    className="rounded bg-black px-5 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                  >
-                    {pending ? 'Saving...' : 'Save changes'}
-                  </button>
+              {/* Product Media Gallery Section (spacious, full-width) */}
+              <div className="border-t border-neutral-200 pt-5 space-y-2">
+                <div>
+                  <h3 className="text-sm font-bold text-brand-charcoal">
+                    Product Images (Gallery)
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    Upload or manage catalog photos. The first image is used as the cover.
+                  </p>
                 </div>
+                <ImageUploader
+                  multiple={true}
+                  value={editImages}
+                  onChange={setEditImages}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditImages(product.images ?? [])
+                    setIsEditing(false)
+                  }}
+                  className="border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 cursor-pointer transition shadow-2xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="bg-brand-primary px-5 py-2 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-50 cursor-pointer transition shadow-xs"
+                >
+                  {pending ? 'Saving...' : 'Save changes'}
+                </button>
               </div>
             </div>
           </form>
@@ -741,30 +805,11 @@ function ProductDetailPage() {
           <Modal.Body className="space-y-4">
             {variantError && <Modal.Alert>{variantError}</Modal.Alert>}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-                SKU (optional)
-                <input
-                  name="sku"
-                  defaultValue={editingVariant?.sku ?? ''}
-                  placeholder="e.g. TSHIRT-BLU-L"
-                  className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
-                />
-              </label>
-
-              <div>
-                <ImageUploader
-                  multiple={false}
-                  value={variantImage}
-                  onChange={setVariantImage}
-                  label="Variant Photo (optional)"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-                Selling Price *
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="flex flex-col gap-1 text-xs font-semibold text-neutral-700">
+                <span>
+                  Selling Price <span className="text-red-500">*</span>
+                </span>
                 <PriceInput
                   name="discountedPrice"
                   required
@@ -773,14 +818,35 @@ function ProductDetailPage() {
                 />
               </label>
 
-              <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-                Regular Price
+              <label className="flex flex-col gap-1 text-xs font-semibold text-neutral-700">
+                <span>Regular Price</span>
                 <PriceInput
                   name="regularPrice"
                   defaultValue={editingVariant?.regularPrice ?? ''}
                   placeholder="39.99"
                 />
               </label>
+
+              <label className="flex flex-col gap-1 text-xs font-semibold text-neutral-700">
+                <span>SKU</span>
+                <input
+                  name="sku"
+                  defaultValue={editingVariant?.sku ?? ''}
+                  placeholder="e.g. TSH-M-RED"
+                  className="w-full h-10 border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white"
+                />
+              </label>
+            </div>
+
+            <div className="border-t border-neutral-200/70 pt-3">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Variant Photo
+              </label>
+              <ImageUploader
+                multiple={false}
+                value={variantImage}
+                onChange={setVariantImage}
+              />
             </div>
 
             {/* Attributes Section */}
@@ -874,6 +940,44 @@ function ProductDetailPage() {
           </Modal.Footer>
         </form>
       </Modal>
+
+      {/* Product Archive Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showArchiveConfirm}
+        onClose={() => setShowArchiveConfirm(false)}
+        onConfirm={confirmArchiveProduct}
+        title="Archive Product"
+        description="Catalog update"
+        message={
+          <span>
+            Are you sure you want to archive <strong>"{product.name}"</strong>? This will hide the product from active sales and inventory selection.
+          </span>
+        }
+        confirmText="Archive Product"
+        variant="danger"
+        isLoading={actionPending}
+      />
+
+      {/* Variant Deactivation Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deactivateVariantTarget)}
+        onClose={() => setDeactivateVariantTarget(null)}
+        onConfirm={confirmDeactivateVariant}
+        title="Deactivate Variant"
+        description="Variant availability"
+        message={
+          <span>
+            Are you sure you want to deactivate variant{' '}
+            <strong>
+              "{formatSku(deactivateVariantTarget?.sku) || 'Default'}"
+            </strong>
+            ? This variant will no longer be available for new sales or transfers.
+          </span>
+        }
+        confirmText="Deactivate Variant"
+        variant="danger"
+        isLoading={actionPending}
+      />
     </main>
   )
 }

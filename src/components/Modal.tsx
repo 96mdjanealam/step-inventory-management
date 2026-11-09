@@ -66,20 +66,20 @@ export function Modal({
       }}
     >
       <div
-        className={`relative w-full ${sizeClasses[size]} bg-white border border-neutral-300 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden ${className}`}
+        className={`relative w-full ${sizeClasses[size]} bg-white shadow-2xl flex flex-col max-h-[90vh] overflow-hidden ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header if title or close button is provided */}
         {(title || showCloseButton) && (
-          <div className="flex items-start justify-between p-5 border-b border-neutral-200 bg-neutral-50/50 flex-shrink-0">
+          <div className="flex items-start justify-between p-5 border-b border-neutral-700/60 bg-brand-charcoal text-white flex-shrink-0">
             <div className="min-w-0 pr-4">
               {title && (
-                <h3 className="text-base sm:text-lg font-bold text-brand-charcoal tracking-tight leading-snug">
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight leading-snug">
                   {title}
                 </h3>
               )}
               {description && (
-                <p className="text-xs text-neutral-500 mt-1 leading-relaxed">
+                <p className="text-xs text-neutral-300 mt-1 leading-relaxed">
                   {description}
                 </p>
               )}
@@ -88,7 +88,7 @@ export function Modal({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1 -mr-1 -mt-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/60 transition cursor-pointer flex-shrink-0"
+                className="p-1 -mr-1 -mt-1 text-neutral-400 hover:text-white hover:bg-white/10 transition cursor-pointer flex-shrink-0"
                 aria-label="Close dialog"
               >
                 <X className="w-4 h-4" />
@@ -134,27 +134,25 @@ function ModalFooter({
   )
 }
 
+import { Alert, type AlertVariant } from './Alert.tsx'
+
+export interface ModalAlertProps {
+  children: React.ReactNode
+  variant?: AlertVariant
+  className?: string
+  title?: string
+}
+
 function ModalAlert({
   children,
   variant = 'error',
   className = '',
-}: {
-  children: React.ReactNode
-  variant?: 'error' | 'warning' | 'info'
-  className?: string
-}) {
-  const variantStyles = {
-    error: 'bg-rose-50 border-rose-200 text-rose-800',
-    warning: 'bg-amber-50 border-amber-200 text-amber-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
-  }
-
+  title,
+}: ModalAlertProps) {
   return (
-    <div
-      className={`p-3 text-xs border font-medium leading-relaxed ${variantStyles[variant]} ${className}`}
-    >
+    <Alert variant={variant} title={title} className={className}>
       {children}
-    </div>
+    </Alert>
   )
 }
 

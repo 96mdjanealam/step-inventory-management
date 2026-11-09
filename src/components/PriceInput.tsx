@@ -10,6 +10,7 @@ export interface PriceInputProps
   error?: boolean
   className?: string
   inputClassName?: string
+  sizeVariant?: 'sm' | 'md'
 }
 
 /**
@@ -44,6 +45,7 @@ export function PriceInput({
   error = false,
   className = '',
   inputClassName = '',
+  sizeVariant = 'md',
   disabled = false,
   placeholder = '0.00',
   ...props
@@ -129,16 +131,27 @@ export function PriceInput({
     onValueChange?.(sanitized)
   }
 
+  const isSm =
+    sizeVariant === 'sm' ||
+    className.includes('text-xs') ||
+    className.includes('h-8')
+
   return (
     <div
-      className={`relative flex items-center bg-white border ${
+      className={`relative w-full flex items-center bg-white border ${
+        isSm ? 'h-8 text-xs' : 'h-10 text-sm'
+      } ${
         error
           ? 'border-rose-500 ring-1 ring-rose-500'
           : 'border-neutral-300 focus-within:border-neutral-900 focus-within:ring-1 focus-within:ring-neutral-900'
       } ${disabled ? 'bg-neutral-100 opacity-60 cursor-not-allowed' : ''} ${className}`}
     >
       {prefix && (
-        <span className="pl-3 pr-1 text-sm font-medium text-neutral-400 select-none flex-shrink-0">
+        <span
+          className={`${
+            isSm ? 'pl-2.5 pr-1 text-xs' : 'pl-3 pr-1 text-sm'
+          } font-medium text-neutral-400 select-none flex-shrink-0`}
+        >
           {prefix}
         </span>
       )}
@@ -153,9 +166,9 @@ export function PriceInput({
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         onChange={handleChange}
-        className={`w-full py-2 ${
-          prefix ? 'pl-1' : 'pl-3'
-        } pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 bg-transparent focus:outline-none disabled:cursor-not-allowed ${inputClassName}`}
+        className={`w-full h-full ${
+          prefix ? 'pl-1' : isSm ? 'pl-2.5' : 'pl-3'
+        } ${isSm ? 'pr-2.5 text-xs' : 'pr-3 text-sm'} text-neutral-900 placeholder:text-neutral-400 bg-transparent focus:outline-none disabled:cursor-not-allowed ${inputClassName}`}
         {...props}
       />
     </div>

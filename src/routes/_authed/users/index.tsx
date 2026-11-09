@@ -4,6 +4,8 @@ import { useServerFn } from '@tanstack/react-start'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
 import { Button } from '../../../components/Button.tsx'
+import { ConfirmModal } from '../../../components/ConfirmModal.tsx'
+import { Alert } from '../../../components/Alert.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { Modal } from '../../../components/Modal.tsx'
 import { Select } from '../../../components/Select.tsx'
@@ -65,6 +67,13 @@ function UsersPage() {
 
   const [actionPendingId, setActionPendingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [roleChangeTarget, setRoleChangeTarget] = useState<{
+    user: (typeof items)[number]
+    newRole: 'admin' | 'employee'
+  } | null>(null)
+  const [deactivateUserTarget, setDeactivateUserTarget] = useState<
+    (typeof items)[number] | null
+  >(null)
 
   useTableAutoRefresh({ enabled: !showCreateModal && !actionPendingId })
 
@@ -166,19 +175,17 @@ function UsersPage() {
     }
   }
 
-  async function handleRoleChange(
+  function handleRoleChange(
     targetUser: (typeof items)[number],
     newRole: 'admin' | 'employee',
   ) {
     if (targetUser.role === newRole) return
-    if (
-      !window.confirm(
-        `Change role for ${targetUser.email} to ${newRole.toUpperCase()}?`,
-      )
-    ) {
-      return
-    }
+    setRoleChangeTarget({ user: targetUser, newRole })
+  }
 
+  async function confirmRoleChange() {
+    if (!roleChangeTarget) return
+    const { user: targetUser, newRole } = roleChangeTarget
     setActionError(null)
     setActionPendingId(targetUser.id)
     try {
@@ -189,6 +196,7 @@ function UsersPage() {
         },
       })
       await router.invalidate()
+      setRoleChangeTarget(null)
     } catch (err) {
       setActionError(
         err instanceof Error ? err.message : 'Failed to update user role',
@@ -199,11 +207,8 @@ function UsersPage() {
   }
 
   async function handleToggleStatus(targetUser: (typeof items)[number]) {
-    const nextState = !targetUser.isActive
-    if (
-      !nextState &&
-      !window.confirm(`Deactivate account for "${targetUser.email}"?`)
-    ) {
+    if (targetUser.isActive) {
+      setDeactivateUserTarget(targetUser)
       return
     }
 
@@ -213,13 +218,35 @@ function UsersPage() {
       await toggleUserActive({
         data: {
           id: targetUser.id,
-          isActive: nextState,
+          isActive: true,
         },
       })
       await router.invalidate()
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : 'Failed to change account status',
+        err instanceof Error ? err.message : 'Failed to activate account',
+      )
+    } finally {
+      setActionPendingId(null)
+    }
+  }
+
+  async function confirmDeactivateUser() {
+    if (!deactivateUserTarget) return
+    setActionError(null)
+    setActionPendingId(deactivateUserTarget.id)
+    try {
+      await toggleUserActive({
+        data: {
+          id: deactivateUserTarget.id,
+          isActive: false,
+        },
+      })
+      await router.invalidate()
+      setDeactivateUserTarget(null)
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Failed to deactivate account',
       )
     } finally {
       setActionPendingId(null)
@@ -247,9 +274,9 @@ function UsersPage() {
       </div>
 
       {actionError ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <Alert variant="error" onClose={() => setActionError(null)}>
           {actionError}
-        </div>
+        </Alert>
       ) : null}
 
       {/* Filter and Search Bar */}
@@ -401,34 +428,38 @@ function UsersPage() {
             {createError && <Modal.Alert>{createError}</Modal.Alert>}
 
             <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-              Email address *
+              <span>
+                Email address <span className="text-red-500">*</span>
+              </span>
               <input
                 name="email"
                 type="email"
                 required
                 placeholder="employee@company.com"
-                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+                className="w-full h-10 border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
               />
             </label>
 
             <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-              Password *
+              <span>
+                Password <span className="text-red-500">*</span>
+              </span>
               <input
                 name="password"
                 type="password"
                 required
                 minLength={6}
                 placeholder="Minimum 6 characters"
-                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+                className="w-full h-10 border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
               />
             </label>
 
             <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-              Username (optional)
+              <span>Username</span>
               <input
                 name="username"
                 placeholder="e.g. john_doe"
-                className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+                className="w-full h-10 border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
               />
             </label>
 
@@ -460,6 +491,46 @@ function UsersPage() {
           </Modal.Footer>
         </form>
       </Modal>
+
+      {/* Role Change Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(roleChangeTarget)}
+        onClose={() => setRoleChangeTarget(null)}
+        onConfirm={confirmRoleChange}
+        title="Change User Role"
+        description="Permission and access update"
+        message={
+          <span>
+            Are you sure you want to change the role for{' '}
+            <strong>"{roleChangeTarget?.user.email}"</strong> to{' '}
+            <span className="font-bold uppercase text-brand-primary">
+              {roleChangeTarget?.newRole}
+            </span>
+            ? This will immediately alter their system permissions.
+          </span>
+        }
+        confirmText="Update Role"
+        variant="warning"
+        isLoading={Boolean(actionPendingId)}
+      />
+
+      {/* Deactivate User Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deactivateUserTarget)}
+        onClose={() => setDeactivateUserTarget(null)}
+        onConfirm={confirmDeactivateUser}
+        title="Deactivate Account"
+        description="User access deactivation"
+        message={
+          <span>
+            Are you sure you want to deactivate the account for{' '}
+            <strong>"{deactivateUserTarget?.email}"</strong>? They will be signed out and unable to log in until reactivated.
+          </span>
+        }
+        confirmText="Deactivate Account"
+        variant="danger"
+        isLoading={Boolean(actionPendingId)}
+      />
     </main>
   )
 }

@@ -4,6 +4,8 @@ import { useServerFn } from '@tanstack/react-start'
 import { ArrowRight, ExternalLink, Plus } from 'lucide-react'
 import { z } from 'zod'
 import { Button, LinkButton } from '../../../components/Button.tsx'
+import { ConfirmModal } from '../../../components/ConfirmModal.tsx'
+import { Alert } from '../../../components/Alert.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { Modal } from '../../../components/Modal.tsx'
@@ -158,6 +160,10 @@ function InventoryPage() {
 
   const [actionPendingId, setActionPendingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [deactivateLocationTarget, setDeactivateLocationTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
 
   // ===================== STOCK MODAL STATES =====================
   // 1. Receive Stock Modal State
@@ -293,16 +299,33 @@ function InventoryPage() {
     }
   }
 
+  async function confirmDeactivateLocation() {
+    if (!deactivateLocationTarget) return
+    const { id } = deactivateLocationTarget
+    setActionError(null)
+    setActionPendingId(id)
+    try {
+      await toggleLocationActive({
+        data: { id, isActive: false },
+      })
+      await router.invalidate()
+      setDeactivateLocationTarget(null)
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Failed to deactivate location',
+      )
+    } finally {
+      setActionPendingId(null)
+    }
+  }
+
   async function handleToggleStatus(loc: {
     id: string
     name: string
     isActive: boolean
   }) {
-    const nextState = !loc.isActive
-    if (
-      !nextState &&
-      !window.confirm(`Deactivate location "${loc.name}"?`)
-    ) {
+    if (loc.isActive) {
+      setDeactivateLocationTarget({ id: loc.id, name: loc.name })
       return
     }
 
@@ -310,12 +333,12 @@ function InventoryPage() {
     setActionPendingId(loc.id)
     try {
       await toggleLocationActive({
-        data: { id: loc.id, isActive: nextState },
+        data: { id: loc.id, isActive: true },
       })
       await router.invalidate()
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : 'Failed to change location status',
+        err instanceof Error ? err.message : 'Failed to activate location',
       )
     } finally {
       setActionPendingId(null)
@@ -942,13 +965,15 @@ function InventoryPage() {
                 </label>
 
                 <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-                  Reason * (Required for audit log)
+                  <span>
+                    Reason <span className="text-red-500">*</span>
+                  </span>
                   <textarea
                     name="reason"
                     required
                     rows={2}
                     placeholder="e.g. Physical inventory count discrepancy, returned shipment correction..."
-                    className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white"
+                    className="border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none bg-white resize-y"
                   />
                 </label>
               </Modal.Body>
@@ -1095,9 +1120,13 @@ function InventoryPage() {
       </div>
 
       {actionError ? (
-        <div className="mb-4 bg-red-50 p-3 text-sm text-red-600 border border-red-200">
+        <Alert
+          variant="error"
+          onClose={() => setActionError(null)}
+          className="mb-4"
+        >
           {actionError}
-        </div>
+        </Alert>
       ) : null}
 
       {/* SECTION 1: PROMINENT PRIMARY FACILITIES (Main Warehouse & Damage Stock) */}
@@ -1587,6 +1616,24 @@ function InventoryPage() {
           </form>
         )}
       </Modal>
+
+      {/* Deactivate Location Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deactivateLocationTarget)}
+        onClose={() => setDeactivateLocationTarget(null)}
+        onConfirm={confirmDeactivateLocation}
+        title="Deactivate Location"
+        description="Location status update"
+        message={
+          <span>
+            Are you sure you want to deactivate{' '}
+            <strong>"{deactivateLocationTarget?.name}"</strong>? It will no longer be available for dispatching or receiving stock.
+          </span>
+        }
+        confirmText="Deactivate Location"
+        variant="danger"
+        isLoading={Boolean(actionPendingId)}
+      />
     </main>
   )
 }

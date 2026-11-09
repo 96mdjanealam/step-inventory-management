@@ -1,3 +1,4 @@
+import { Boxes } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -60,9 +61,12 @@ export function InventoryDistributionChart({ data }: InventoryDistributionChartP
     <div className="border border-neutral-200 bg-white p-5 shadow-2xs space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-800">
-            Stock Distribution by Facility
-          </h3>
+          <div className="flex items-center gap-2">
+            <Boxes className="w-4 h-4 text-brand-primary flex-shrink-0" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-800">
+              Stock Distribution by Facility
+            </h3>
+          </div>
           <p className="text-xs text-neutral-500 mt-0.5">
             Active units on hand across warehouses and stores
           </p>

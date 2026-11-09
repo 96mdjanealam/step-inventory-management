@@ -60,8 +60,6 @@ export function ImageUploader({
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showUrlInput, setShowUrlInput] = useState(false)
-  const [urlInput, setUrlInput] = useState('')
 
   const items: UploadableImage[] = useMemo(() => {
     if (multiple) {
@@ -128,109 +126,74 @@ export function ImageUploader({
     }
   }
 
-  function handleAddUrl(e: React.FormEvent) {
-    e.preventDefault()
-    const trimmed = urlInput.trim()
-    if (!trimmed) return
-
-    if (multiple) {
-      onChange([...items, trimmed])
-    } else {
-      onChange(trimmed)
-    }
-    setUrlInput('')
-    setShowUrlInput(false)
-  }
-
   return (
     <div className="flex flex-col gap-2">
       {label ? (
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-brand-charcoal">{label}</label>
-          <button
-            type="button"
-            onClick={() => setShowUrlInput(!showUrlInput)}
-            className="text-xs text-brand-primary hover:underline cursor-pointer"
-          >
-            {showUrlInput ? 'Cancel URL' : '+ Paste image URL'}
-          </button>
-        </div>
+        <label className="text-sm font-medium text-brand-charcoal">{label}</label>
       ) : null}
 
-      {showUrlInput ? (
-        <form onSubmit={handleAddUrl} className="flex gap-2">
-          <input
-            type="url"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            placeholder="https://example.com/image.jpg"
-            className="flex-1 border border-neutral-300 bg-white px-3 py-1.5 text-xs text-brand-charcoal focus:border-brand-primary focus:outline-hidden"
-          />
-          <button
-            type="submit"
-            className="bg-brand-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-dark cursor-pointer transition"
-          >
-            Add
-          </button>
-        </form>
-      ) : null}
-
-      {/* Single image preview mode */}
+      {/* Single image / variant photo mode */}
       {!multiple && (
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3.5">
+        <div>
           {previewUrls[0] ? (
-            <div className="relative h-44 w-44 sm:h-52 sm:w-52 overflow-hidden border border-neutral-200 bg-neutral-50 shadow-xs">
-              <img
-                src={previewUrls[0].url}
-                alt="Variant preview"
-                className="h-full w-full object-cover"
-                onError={(e) => {
-                  ;(e.target as HTMLImageElement).src =
-                    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="1.5"><rect width="18" height="18" x="3" y="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
-                }}
-              />
-              {previewUrls[0].isFile && (
-                <span className="absolute bottom-0 inset-x-0 bg-brand-primary/95 text-[10px] font-bold text-white text-center py-1 uppercase tracking-wider">
-                  New
+            <div className="flex items-center gap-3">
+              <div className="group relative h-20 w-20 flex-shrink-0 overflow-hidden border border-neutral-200 bg-neutral-50 shadow-2xs">
+                <img
+                  src={previewUrls[0].url}
+                  alt="Variant preview"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).src =
+                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="1.5"><rect width="18" height="18" x="3" y="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
+                  }}
+                />
+                {previewUrls[0].isFile && (
+                  <span className="absolute bottom-0 inset-x-0 bg-brand-primary text-[8px] font-bold text-white text-center py-0.5 uppercase tracking-wider">
+                    New
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleRemove(0)}
+                  className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center bg-rose-600 text-white hover:bg-rose-700 cursor-pointer shadow-xs transition"
+                  title="Remove image"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-neutral-600">
+                  {previewUrls[0].isFile ? 'Photo staged for upload' : 'Photo attached'}
                 </span>
-              )}
-              <button
-                type="button"
-                onClick={() => handleRemove(0)}
-                className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center bg-rose-600 text-white hover:bg-rose-700 cursor-pointer shadow-sm transition"
-                title="Remove image"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs font-semibold text-neutral-800 hover:text-brand-primary underline cursor-pointer"
+                  >
+                    Change photo
+                  </button>
+                  <span className="text-xs text-neutral-300">•</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(0)}
+                    className="text-xs font-semibold text-rose-600 hover:text-rose-800 underline cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-44 w-44 sm:h-52 sm:w-52 flex-col items-center justify-center border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-brand-primary hover:text-brand-primary hover:bg-brand-bg/30 transition cursor-pointer"
+              className="inline-flex items-center gap-2 border border-dashed border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-700 hover:border-brand-primary hover:text-brand-primary hover:bg-brand-bg/20 transition cursor-pointer"
             >
-              <Plus className="h-8 w-8 text-neutral-400 group-hover:text-brand-primary" />
-              <span className="text-xs mt-2 font-medium">Add Photo</span>
+              <Plus className="h-4 w-4 text-neutral-400 group-hover:text-brand-primary" />
+              Upload variant photo
             </button>
-          )}
-
-          {previewUrls[0] && (
-            <div className="flex sm:flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center justify-center border border-neutral-300 bg-white px-3.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-brand-primary hover:text-brand-primary cursor-pointer transition shadow-2xs"
-              >
-                Change photo
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRemove(0)}
-                className="inline-flex items-center justify-center border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 cursor-pointer transition"
-              >
-                Remove
-              </button>
-            </div>
           )}
         </div>
       )}
@@ -263,7 +226,7 @@ export function ImageUploader({
               {previewUrls.map((p, idx) => (
                 <div
                   key={`${p.url}-${idx}`}
-                  className="group relative h-20 w-20 sm:h-24 sm:w-24 overflow-hidden border border-neutral-200 bg-neutral-50 shadow-xs"
+                  className="group relative h-36 w-36 sm:h-40 sm:w-40 overflow-hidden border border-neutral-200 bg-neutral-50 shadow-xs"
                 >
                   <img
                     src={p.url}
@@ -302,6 +265,11 @@ export function ImageUploader({
         </div>
       )}
 
+      {error ? <p className="text-xs text-rose-600 font-medium">{error}</p> : null}
+      {helperText ? (
+        <p className="text-xs text-neutral-500">{helperText}</p>
+      ) : null}
+
       {/* Hidden File Input */}
       <input
         ref={fileInputRef}
@@ -311,11 +279,6 @@ export function ImageUploader({
         onChange={(e) => handleFiles(e.target.files)}
         className="hidden"
       />
-
-      {error ? <p className="text-xs text-rose-600 font-medium">{error}</p> : null}
-      {helperText ? (
-        <p className="text-xs text-neutral-500">{helperText}</p>
-      ) : null}
     </div>
   )
 }

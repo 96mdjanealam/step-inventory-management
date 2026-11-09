@@ -4,6 +4,8 @@ import { useServerFn } from '@tanstack/react-start'
 import { Image as ImageIcon, Plus } from 'lucide-react'
 import { z } from 'zod'
 import { Button, LinkButton } from '../../../components/Button.tsx'
+import { ConfirmModal } from '../../../components/ConfirmModal.tsx'
+import { Alert } from '../../../components/Alert.tsx'
 import { FilterToolbar, SearchInput } from '../../../components/FilterToolbar.tsx'
 import { TableCard } from '../../../components/TableCard.tsx'
 import { TablePagination } from '../../../components/TablePagination.tsx'
@@ -53,6 +55,7 @@ function ProductsPage() {
 
   const [actionPendingId, setActionPendingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null)
 
   useTableAutoRefresh({ enabled: !actionPendingId })
 
@@ -81,13 +84,15 @@ function ProductsPage() {
     })
   }
 
-  async function handleArchive(id: string, name: string) {
-    if (!window.confirm(`Are you sure you want to archive "${name}"?`)) return
+  async function confirmArchive() {
+    if (!archiveTarget) return
+    const { id } = archiveTarget
     setActionPendingId(id)
     setActionError(null)
     try {
       await archiveProduct({ data: { id } })
       await router.invalidate()
+      setArchiveTarget(null)
     } catch (err) {
       setActionError(
         err instanceof Error ? err.message : 'Failed to archive product',
@@ -130,9 +135,9 @@ function ProductsPage() {
       </div>
 
       {actionError ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <Alert variant="error" onClose={() => setActionError(null)}>
           {actionError}
-        </div>
+        </Alert>
       ) : null}
 
       <FilterToolbar>
@@ -238,7 +243,7 @@ function ProductsPage() {
                               variant="dangerSoft"
                               disabled={actionPendingId === item.id}
                               isLoading={actionPendingId === item.id}
-                              onClick={() => handleArchive(item.id, item.name)}
+                              onClick={() => setArchiveTarget({ id: item.id, name: item.name })}
                             >
                               Archive
                             </Button>
@@ -283,6 +288,22 @@ function ProductsPage() {
           />
         </TableCard.Footer>
       </TableCard>
+
+      <ConfirmModal
+        isOpen={Boolean(archiveTarget)}
+        onClose={() => setArchiveTarget(null)}
+        onConfirm={confirmArchive}
+        title="Archive Product"
+        description="Catalog update"
+        message={
+          <span>
+            Are you sure you want to archive <strong>"{archiveTarget?.name}"</strong>? It will no longer appear in active catalog listings or POS sales.
+          </span>
+        }
+        confirmText="Archive Product"
+        variant="danger"
+        isLoading={Boolean(actionPendingId)}
+      />
     </div>
   )
 }

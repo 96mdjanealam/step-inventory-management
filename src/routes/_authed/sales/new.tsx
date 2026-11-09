@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { ArrowLeft, AlertCircle, Package, Plus, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Package, Plus, Image as ImageIcon } from 'lucide-react'
 import { Button, LinkButton } from '../../../components/Button.tsx'
+import { Alert } from '../../../components/Alert.tsx'
 import { formatVariantInfo } from '../../../lib/display-formatters.tsx'
 import { LocationSelect } from '../../../components/LocationSelect.tsx'
 import { ProductSelect } from '../../../components/ProductSelect.tsx'
@@ -639,10 +640,9 @@ function NewSalePage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
-          <div className="font-medium">{error}</div>
-        </div>
+        <Alert variant="error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -686,27 +686,27 @@ function NewSalePage() {
 
             <div>
               <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-                Customer Name (Optional)
+                Customer Name
               </label>
               <input
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="e.g. John Smith"
-                className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                className="w-full h-10 border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-                Customer Phone (Optional)
+                Customer Phone
               </label>
               <input
                 type="tel"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 placeholder="e.g. +1 555-0199"
-                className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                className="w-full h-10 border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
               />
             </div>
           </div>
@@ -893,14 +893,14 @@ function NewSalePage() {
           {/* Order Notes */}
           <div className="pt-3 border-t border-neutral-100">
             <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Order Notes / Payment Remarks (Optional)
+              Order Notes / Payment Remarks
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="e.g. Paid in cash, customer requested receipt by SMS, etc."
-              className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+              className="w-full border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none resize-y"
             />
           </div>
         </div>

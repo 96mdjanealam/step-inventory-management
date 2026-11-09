@@ -1,3 +1,4 @@
+import { TrendingUp } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -78,9 +79,12 @@ export function RevenueTrendChart({ data }: RevenueTrendChartProps) {
     <div className="border border-neutral-200 bg-white p-5 shadow-2xs space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-800">
-            Revenue & Sales Trend
-          </h3>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-brand-primary flex-shrink-0" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-800">
+              Revenue & Sales Trend
+            </h3>
+          </div>
           <p className="text-xs text-neutral-500 mt-0.5">
             Daily gross completed sales over the selected period
           </p>

@@ -16,7 +16,11 @@ import {
   Layers,
   Search,
   Sparkles,
+  Bell,
 } from 'lucide-react'
+import { Button } from '../../components/Button.tsx'
+import { Alert } from '../../components/Alert.tsx'
+import { ConfirmModal } from '../../components/ConfirmModal.tsx'
 
 export const Route = createFileRoute('/_authed/guide')({
   component: OperationsGuidePage,
@@ -306,6 +310,9 @@ const WORKFLOWS: WorkflowSection[] = [
 export function OperationsGuidePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [previewModalVariant, setPreviewModalVariant] = useState<
+    'danger' | 'warning' | 'primary' | null
+  >(null)
 
   const filteredWorkflows = WORKFLOWS.filter((wf) => {
     const matchesCategory =
@@ -778,7 +785,106 @@ export function OperationsGuidePage() {
             </table>
           </div>
         </div>
+
+        {/* =========================================================================
+            DESIGN SYSTEM: ALERT & CONFIRMATION MODAL PREVIEW
+            ========================================================================= */}
+        <div className="bg-white border border-neutral-200 p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
+            <Bell className="w-4 h-4 text-brand-primary" />
+            <h3 className="text-base font-bold text-brand-charcoal">
+              System Alerts &amp; Confirmation Dialogs
+            </h3>
+          </div>
+          <p className="text-xs text-neutral-600 leading-relaxed">
+            Standardized brand components replacing native browser alerts and confirms across the system:
+          </p>
+
+          {/* Inline Alert Banners */}
+          <div className="space-y-2.5 pt-1">
+            <Alert variant="error" title="Error Alert">
+              An error occurred while saving the ledger record. Please check required fields.
+            </Alert>
+            <Alert variant="warning" title="Warning Notice">
+              Current store inventory is below the reorder threshold (3 units remaining).
+            </Alert>
+            <Alert variant="info" title="Informational Note">
+              All transfers between facilities are automatically tracked in the immutable audit log.
+            </Alert>
+            <Alert variant="success" title="Success Notification">
+              Stock replenishment successfully processed and posted to facility inventory.
+            </Alert>
+          </div>
+
+          {/* Interactive Confirm Modal Triggers */}
+          <div className="pt-3 border-t border-neutral-100">
+            <span className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 mb-2">
+              Interactive Confirmation Dialog Preview
+            </span>
+            <div className="flex flex-wrap gap-2.5">
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => setPreviewModalVariant('danger')}
+              >
+                Test Danger Dialog
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setPreviewModalVariant('warning')}
+              >
+                Test Warning Dialog
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => setPreviewModalVariant('primary')}
+              >
+                Test Info Dialog
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Demo ConfirmModal Preview */}
+      <ConfirmModal
+        isOpen={Boolean(previewModalVariant)}
+        onClose={() => setPreviewModalVariant(null)}
+        onConfirm={() => setPreviewModalVariant(null)}
+        title={
+          previewModalVariant === 'danger'
+            ? 'Archive Item'
+            : previewModalVariant === 'warning'
+              ? 'Role Change'
+              : 'Synchronize Inventory'
+        }
+        description="Action confirmation dialog"
+        message={
+          previewModalVariant === 'danger' ? (
+            <span>
+              Are you sure you want to archive <strong>"Denim Jacket"</strong>? It will no longer be visible in the active sales catalog.
+            </span>
+          ) : previewModalVariant === 'warning' ? (
+            <span>
+              Are you sure you want to promote <strong>"employee@company.com"</strong> to Administrator?
+            </span>
+          ) : (
+            <span>
+              Confirm stock balance synchronization for all registered warehouses.
+            </span>
+          )
+        }
+        confirmText={
+          previewModalVariant === 'danger'
+            ? 'Archive Item'
+            : previewModalVariant === 'warning'
+              ? 'Confirm Role'
+              : 'Synchronize'
+        }
+        variant={previewModalVariant ?? 'danger'}
+      />
     </div>
   )
 }
